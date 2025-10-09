@@ -543,12 +543,10 @@ async def main():
             reply_text = None
             variant_used = None
             
-            # If пользователь уже ответил хотя бы раз, включаем ЛЛМ даже если stage ещё 0
-            effective_stage = stage
-            if interactions >= 1 and stage == 0:
-                effective_stage = 1
-
-            if oai and effective_stage in (1, 2):
+            # Включаем ЛЛМ для всех сообщений кроме самого первого
+            print(f"[DEBUG] Stage={stage}, Interactions={interactions}, OPENAI_KEY={'SET' if OPENAI_API_KEY else 'MISSING'}")
+            
+            if oai and interactions >= 1:
                 try:
                     reply_text = await asyncio.get_event_loop().run_in_executor(
                         None,
@@ -557,13 +555,13 @@ async def main():
                         LLM_MODEL,
                         base_prompt,
                         cta_url,
-                        effective_stage,
+                        stage,
                         first_name,
                         user_text,
                         user_type,
                     )
                     variant_used = f"llm_{user_type}"
-                    print(f"[DEBUG] LLM used at stage {effective_stage}, interactions={interactions}")
+                    print(f"[DEBUG] LLM SUCCESS! Reply: {reply_text[:50]}...")
                 except Exception as e:
                     print(f"[DEBUG] LLM failed: {e}")
             
