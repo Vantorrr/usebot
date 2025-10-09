@@ -453,6 +453,9 @@ async def main():
             chat = await event.get_chat()
             user_id = getattr(sender, 'id', None)
             chat_id = getattr(chat, 'id', None)
+            # Normalize conversation id for private dialogs (use user_id)
+            if getattr(event, 'is_private', False) and user_id is not None:
+                chat_id = user_id
             text = event.raw_text or ''
             
             print(f'[DEBUG] New message from {user_id} in chat {chat_id}: {text[:50]}...')
@@ -519,6 +522,7 @@ async def main():
             loop = asyncio.get_event_loop()
             profile = await loop.run_in_executor(None, get_user_profile, cur, user_id, first_name)
             stage = await loop.run_in_executor(None, get_dialog_step, cur, user_id, chat_id)
+            print(f"[DEBUG] Current stage for {user_id}/{chat_id}: {stage}")
             user_text = text
             
             # Detect user type and update profile
