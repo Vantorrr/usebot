@@ -15,13 +15,19 @@ API_ID = int(os.getenv('TELEGRAM_API_ID') or 0)
 API_HASH = os.getenv('TELEGRAM_API_HASH')
 SESSION = os.getenv('USERBOT_SESSION') or ''
 
-DB = dict(
-    host=os.getenv('POSTGRES_HOST'),
-    port=int(os.getenv('POSTGRES_PORT') or 5432),
-    user=os.getenv('POSTGRES_USER'),
-    password=os.getenv('POSTGRES_PASSWORD'),
-    dbname=os.getenv('POSTGRES_DB'),
-)
+def get_db_config():
+    # Use DATABASE_URL if available (Railway), otherwise individual vars
+    database_url = os.getenv('DATABASE_URL')
+    if database_url:
+        return {'dsn': database_url}
+    else:
+        return {
+            'host': os.getenv('POSTGRES_HOST', 'localhost'),
+            'port': int(os.getenv('POSTGRES_PORT') or 5432),
+            'user': os.getenv('POSTGRES_USER', 'postgres'),
+            'password': os.getenv('POSTGRES_PASSWORD', ''),
+            'dbname': os.getenv('POSTGRES_DB', 'postgres'),
+        }
 
 MIN_PAUSE = int(os.getenv('MIN_PAUSE_SEC') or 30)
 MAX_PAUSE = int(os.getenv('MAX_PAUSE_SEC') or 120)
@@ -45,7 +51,19 @@ async def get_settings(cur):
     return targets, keywords, dm_limit, posts_limit
 
 def db_conn():
-    return psycopg2.connect(cursor_factory=psycopg2.extras.RealDictCursor, **DB)
+    db_config = get_db_config()
+    if 'dsn' in db_config:
+        # Railway DATABASE_URL
+        return psycopg2.connect(
+            cursor_factory=psycopg2.extras.RealDictCursor,
+            dsn=db_config['dsn']
+        )
+    else:
+        # Individual parameters
+        return psycopg2.connect(
+            cursor_factory=psycopg2.extras.RealDictCursor,
+            **db_config
+        )
 
 
 async def get_prompt(cur):
