@@ -532,12 +532,18 @@ async def main():
                 profile['user_type'] = detected_type
             
             user_type = profile.get('user_type', 'default')
+            interactions = profile.get('interaction_count', 0) if isinstance(profile, dict) else 0
             
             # Get LLM response (stages 1-2) or A/B template
             reply_text = None
             variant_used = None
             
-            if oai and stage in (1, 2):
+            # If пользователь уже ответил хотя бы раз, включаем ЛЛМ даже если stage ещё 0
+            effective_stage = stage
+            if interactions >= 1 and stage == 0:
+                effective_stage = 1
+
+            if oai and effective_stage in (1, 2):
                 try:
                     reply_text = await asyncio.get_event_loop().run_in_executor(
                         None,
@@ -546,12 +552,13 @@ async def main():
                         LLM_MODEL,
                         base_prompt,
                         cta_url,
-                        stage,
+                        effective_stage,
                         first_name,
                         user_text,
                         user_type,
                     )
                     variant_used = f"llm_{user_type}"
+                    print(f"[DEBUG] LLM used at stage {effective_stage}, interactions={interactions}")
                 except Exception as e:
                     print(f"[DEBUG] LLM failed: {e}")
             
