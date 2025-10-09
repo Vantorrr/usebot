@@ -15,11 +15,104 @@ app.use(express.json());
 
 const port = process.env.SERVER_PORT || 8080;
 let db;
-try {
-  db = getDb();
-} catch (e) {
-  console.log('DB connection failed, using mock data');
-  db = null;
+
+async function initializeDatabase(db) {
+  try {
+    // Create tables and seed data
+    const initSQL = `
+      CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
+
+      CREATE TABLE IF NOT EXISTS settings (
+        key TEXT PRIMARY KEY,
+        value TEXT NOT NULL,
+        updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+      );
+
+      CREATE TABLE IF NOT EXISTS scenarios (
+        id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+        name TEXT NOT NULL,
+        is_active BOOLEAN NOT NULL DEFAULT TRUE,
+        created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+        updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+      );
+
+      CREATE TABLE IF NOT EXISTS scenario_steps (
+        id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+        scenario_id UUID NOT NULL REFERENCES scenarios(id) ON DELETE CASCADE,
+        step_order INT NOT NULL,
+        trigger TEXT,
+        message_template TEXT NOT NULL,
+        UNIQUE(scenario_id, step_order)
+      );
+
+      CREATE TABLE IF NOT EXISTS schedules (
+        id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+        scenario_id UUID NOT NULL REFERENCES scenarios(id) ON DELETE CASCADE,
+        start_time TIME,
+        end_time TIME,
+        min_pause_sec INT NOT NULL DEFAULT 30,
+        max_pause_sec INT NOT NULL DEFAULT 120
+      );
+
+      CREATE TABLE IF NOT EXISTS dialog_states (
+        id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+        user_id BIGINT NOT NULL,
+        chat_id BIGINT NOT NULL,
+        scenario_id UUID REFERENCES scenarios(id) ON DELETE SET NULL,
+        step_order INT NOT NULL DEFAULT 0,
+        updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+        UNIQUE(user_id, chat_id)
+      );
+
+      CREATE TABLE IF NOT EXISTS events (
+        id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+        event_type TEXT NOT NULL,
+        payload JSONB NOT NULL,
+        created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+      );
+
+      CREATE TABLE IF NOT EXISTS message_templates (
+        id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+        stage INT NOT NULL,
+        variant_name TEXT NOT NULL,
+        template TEXT NOT NULL,
+        user_type TEXT DEFAULT 'default',
+        weight INT DEFAULT 1,
+        created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+      );
+
+      CREATE TABLE IF NOT EXISTS user_profiles (
+        user_id BIGINT PRIMARY KEY,
+        user_type TEXT DEFAULT 'default',
+        first_name TEXT,
+        interaction_count INT DEFAULT 0,
+        last_response_sentiment TEXT,
+        conversion_stage INT DEFAULT 0,
+        created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+        updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+      );
+
+      CREATE TABLE IF NOT EXISTS conversions (
+        id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+        user_id BIGINT NOT NULL,
+        chat_id BIGINT NOT NULL,
+        conversion_type TEXT NOT NULL,
+        stage INT NOT NULL,
+        variant_used TEXT,
+        created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+      );
+
+      INSERT INTO settings (key, value) VALUES
+        ('prompt', 'Пиши от лица девушки: тёплый, игривый, уважительный тон; лёгкий флирт и эмодзи умеренно. Отвечай кратко и по-русски. Веди по воронке (1 — приветствие, 2 — прогрев, 3 — оффер, 4 — мягкий CTA), ссылку не давай до шага 4. Соблюдай деликатность, избегай резкости и спама.'),
+        ('cta_url', 'https://networkassistant.ai/register?invite_code=USER-170-07548ff71f720f03')
+      ON CONFLICT (key) DO NOTHING;
+    `;
+    
+    await db.query(initSQL);
+    console.log('Database initialized successfully');
+  } catch (error) {
+    console.log('Database initialization error:', error.message);
+  }
 }
 
 // Health
@@ -237,9 +330,22 @@ if (botToken) {
   bot.launch().then(() => console.log('Admin bot launched')).catch(console.error);
 }
 
-app.listen(port, () => {
-  console.log(`Server listening on http://localhost:${port}`);
-});
+async function startServer() {
+  try {
+    db = getDb();
+    await initializeDatabase(db);
+    console.log('Database connected and initialized');
+  } catch (e) {
+    console.log('DB connection failed, using mock data:', e.message);
+    db = null;
+  }
+
+  app.listen(port, () => {
+    console.log(`Server listening on port ${port}`);
+  });
+}
+
+startServer();
 
 // Graceful stop
 process.once('SIGINT', () => bot?.stop('SIGINT'));
