@@ -34,7 +34,7 @@ MAX_PAUSE = int(os.getenv('MAX_PAUSE_SEC') or 120)
 LLM_MODEL = os.getenv('LLM_MODEL') or 'gpt-4o-mini'
 OPENAI_API_KEY = os.getenv('OPENAI_API_KEY')
 
-async def get_settings(cur):
+def get_settings(cur):
     """Get settings from database"""
     settings = {}
     cur.execute("SELECT key, value FROM settings WHERE key IN ('target_chats', 'keywords', 'daily_dm_limit', 'chat_posts_per_day')")
