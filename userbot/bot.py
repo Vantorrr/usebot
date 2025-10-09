@@ -30,6 +30,11 @@ OPENAI_API_KEY = os.getenv('OPENAI_API_KEY')
 
 TARGETS = [t.strip() for t in (os.getenv('TARGET_CHAT_IDS') or '').split(',') if t.strip()]
 
+# Proactive bot settings
+KEYWORDS = ['знакомства', 'отношения', 'пара', 'любовь', 'встречи', 'девушка', 'парень', 'одиночество', 'свидание']
+DAILY_DM_LIMIT = 7
+CHAT_POSTS_PER_DAY = 3
+
 def db_conn():
     return psycopg2.connect(cursor_factory=psycopg2.extras.RealDictCursor, **DB)
 
@@ -131,6 +136,54 @@ async def track_conversion(cur, user_id, chat_id, conversion_type, stage, varian
         "INSERT INTO conversions (user_id, chat_id, conversion_type, stage, variant_used) VALUES (%s, %s, %s, %s, %s)",
         (user_id, chat_id, conversion_type, stage, variant_used)
     )
+
+async def get_daily_stats(cur):
+    cur.execute("SELECT * FROM daily_stats WHERE date = CURRENT_DATE")
+    row = cur.fetchone()
+    if not row:
+        cur.execute("INSERT INTO daily_stats (date) VALUES (CURRENT_DATE) RETURNING *")
+        row = cur.fetchone()
+    return dict(row)
+
+async def update_daily_stats(cur, field, increment=1):
+    cur.execute(f"UPDATE daily_stats SET {field} = {field} + %s WHERE date = CURRENT_DATE", (increment,))
+
+async def find_target_user(cur, user_id, username, first_name, chat_title, keyword):
+    cur.execute(
+        """INSERT INTO target_users (user_id, username, first_name, found_in_chat, keyword_matched) 
+           VALUES (%s, %s, %s, %s, %s) ON CONFLICT (user_id) DO NOTHING""",
+        (user_id, username, first_name, chat_title, keyword)
+    )
+
+async def get_auto_post_template(cur):
+    cur.execute(
+        """SELECT template FROM auto_posts 
+           WHERE last_used IS NULL OR last_used < NOW() - INTERVAL '24 hours'
+           ORDER BY RANDOM() * weight DESC LIMIT 1"""
+    )
+    row = cur.fetchone()
+    if row:
+        cur.execute("UPDATE auto_posts SET last_used = NOW() WHERE template = %s", (row['template'],))
+        return row['template']
+    return None
+
+async def should_contact_user(cur, user_id):
+    # Check if already contacted
+    cur.execute("SELECT status FROM target_users WHERE user_id = %s", (user_id,))
+    row = cur.fetchone()
+    if row and row['status'] != 'found':
+        return False
+    
+    # Check daily limit
+    stats = await get_daily_stats(cur)
+    return stats['dms_sent'] < DAILY_DM_LIMIT
+
+def contains_keywords(text, keywords):
+    text_lower = text.lower()
+    for keyword in keywords:
+        if keyword in text_lower:
+            return keyword
+    return None
 
 
 async def inc_dialog_step(cur, user_id, chat_id, scenario_id):
@@ -259,11 +312,54 @@ async def main():
             user_id = getattr(sender, 'id', None)
             chat_id = getattr(chat, 'id', None)
             text = event.raw_text or ''
+            
+            # Skip own messages
+            if sender and hasattr(sender, 'bot') and sender.bot:
+                return
+            if sender and sender.id == (await client.get_me()).id:
+                return
 
             await asyncio.get_event_loop().run_in_executor(None, log_event, cur, 'incoming', {
                 'user_id': user_id, 'chat_id': chat_id, 'text': text
             })
 
+            # Check for keywords in group chats (proactive search)
+            if hasattr(chat, 'title') and chat.title:  # Group chat
+                keyword = contains_keywords(text, KEYWORDS)
+                if keyword and user_id:
+                    username = getattr(sender, 'username', '')
+                    first_name = getattr(sender, 'first_name', '') or ''
+                    
+                    # Save potential target
+                    await asyncio.get_event_loop().run_in_executor(
+                        None, find_target_user, cur, user_id, username, first_name, chat.title, keyword
+                    )
+                    await asyncio.get_event_loop().run_in_executor(None, update_daily_stats, cur, 'users_found')
+                    
+                    # Try to contact if within limits
+                    if await asyncio.get_event_loop().run_in_executor(None, should_contact_user, cur, user_id):
+                        await asyncio.sleep(random.randint(60, 300))  # Wait 1-5 minutes
+                        try:
+                            # Send first message from scenario
+                            template, _ = await get_ab_template(cur, 0, 'default')
+                            if template:
+                                dm_text = template.replace('{first_name}', first_name).replace('{cta_url}', cta_url)
+                                await client.send_message(user_id, dm_text)
+                                
+                                # Update stats
+                                await asyncio.get_event_loop().run_in_executor(None, update_daily_stats, cur, 'dms_sent')
+                                cur.execute("UPDATE target_users SET status = 'contacted', contacted_at = NOW() WHERE user_id = %s", (user_id,))
+                                
+                                await asyncio.get_event_loop().run_in_executor(None, log_event, cur, 'proactive_dm', {
+                                    'user_id': user_id, 'keyword': keyword, 'text': dm_text
+                                })
+                        except Exception as e:
+                            await asyncio.get_event_loop().run_in_executor(None, log_event, cur, 'dm_error', {
+                                'user_id': user_id, 'error': str(e)
+                            })
+                return  # Don't process group messages further
+
+            # Handle private messages (existing logic)
             if not scenario_id:
                 return
             if not within_schedule(cur, scenario_id):
@@ -343,8 +439,29 @@ async def main():
             return
         while True:
             try:
-                if scenario_id and within_schedule(cur, scenario_id):
-                    # stage 0 broadcast with CTA awareness
+                stats = await asyncio.get_event_loop().run_in_executor(None, get_daily_stats, cur)
+                
+                # Auto-posting to chats (proactive engagement)
+                if stats['posts_made'] < CHAT_POSTS_PER_DAY and within_schedule(cur, scenario_id):
+                    auto_post = await asyncio.get_event_loop().run_in_executor(None, get_auto_post_template, cur)
+                    if auto_post and TARGETS:
+                        target = random.choice(TARGETS)
+                        try:
+                            async with client.action(target, 'typing'):
+                                await asyncio.sleep(typing_delay_by_text(auto_post))
+                            await client.send_message(target, auto_post)
+                            
+                            await asyncio.get_event_loop().run_in_executor(None, update_daily_stats, cur, 'posts_made')
+                            await asyncio.get_event_loop().run_in_executor(None, log_event, cur, 'auto_post', {
+                                'target': target, 'text': auto_post
+                            })
+                        except Exception as e:
+                            await asyncio.get_event_loop().run_in_executor(None, log_event, cur, 'post_error', {
+                                'target': target, 'error': str(e)
+                            })
+                
+                # Regular scenario broadcast (less frequent now)
+                elif random.random() < 0.3 and scenario_id and within_schedule(cur, scenario_id):
                     template = await get_step_message(cur, scenario_id, 0)
                     if template:
                         msg = template.replace('{cta_url}', cta_url)
@@ -356,10 +473,12 @@ async def main():
                             await asyncio.get_event_loop().run_in_executor(None, log_event, cur, 'broadcast', {'target': target, 'text': msg})
                         except Exception as e:
                             await asyncio.get_event_loop().run_in_executor(None, log_event, cur, 'broadcast_error', {'target': target, 'error': str(e)})
-                await asyncio.sleep(random.randint(MIN_PAUSE, MAX_PAUSE))
+                
+                # Wait longer between posts (30 min to 2 hours)
+                await asyncio.sleep(random.randint(1800, 7200))
             except Exception as e:
                 await asyncio.get_event_loop().run_in_executor(None, log_event, cur, 'scheduler_error', {'error': str(e)})
-                await asyncio.sleep(10)
+                await asyncio.sleep(300)  # 5 min on error
 
     await asyncio.gather(client.run_until_disconnected(), scheduler_loop())
 

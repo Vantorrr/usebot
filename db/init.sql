@@ -134,4 +134,52 @@ INSERT INTO message_templates (stage, variant_name, template, user_type, weight)
 
 ON CONFLICT DO NOTHING;
 
+-- Additional settings for proactive bot
+INSERT INTO settings (key, value) VALUES
+  ('keywords', 'знакомства,отношения,пара,любовь,встречи,девушка,парень,одиночество,свидание'),
+  ('daily_dm_limit', '7'),
+  ('chat_posts_per_day', '3')
+ON CONFLICT (key) DO NOTHING;
+
+-- Target users tracking
+CREATE TABLE IF NOT EXISTS target_users (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  user_id BIGINT NOT NULL,
+  username TEXT,
+  first_name TEXT,
+  found_in_chat TEXT,
+  keyword_matched TEXT,
+  contacted_at TIMESTAMPTZ,
+  status TEXT DEFAULT 'found', -- found, contacted, replied, converted
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  UNIQUE(user_id)
+);
+
+-- Daily limits tracking
+CREATE TABLE IF NOT EXISTS daily_stats (
+  date DATE PRIMARY KEY DEFAULT CURRENT_DATE,
+  dms_sent INT DEFAULT 0,
+  posts_made INT DEFAULT 0,
+  users_found INT DEFAULT 0
+);
+
+-- Auto-post templates
+CREATE TABLE IF NOT EXISTS auto_posts (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  template TEXT NOT NULL,
+  category TEXT DEFAULT 'general', -- general, question, story, tip
+  weight INT DEFAULT 1,
+  last_used TIMESTAMPTZ,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+-- Seed auto-post templates
+INSERT INTO auto_posts (template, category, weight) VALUES
+  ('Кто-нибудь верит в любовь с первого взгляда? 👀✨', 'question', 3),
+  ('Недавно поняла: лучшие отношения начинаются с дружбы 💕', 'story', 2),
+  ('Совет дня: будьте собой — правильный человек полюбит именно вас 🌟', 'tip', 2),
+  ('А вы знали, что совместимость можно рассчитать? Наука не стоит на месте 🧬', 'general', 1),
+  ('Иногда судьба подкидывает встречи в самых неожиданных местах 🎭', 'story', 2)
+ON CONFLICT DO NOTHING;
+
 
