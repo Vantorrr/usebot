@@ -465,6 +465,74 @@
       ]);
     }
 
+    function AutoPostsCard() {
+      const [posts, setPosts] = useFetch('/api/auto-posts', []);
+      const [newPost, setNewPost] = React.useState('');
+      
+      const addPost = async () => {
+        if (!newPost.trim()) return alert('Введите текст поста');
+        await fetch('/api/auto-posts', { 
+          method: 'POST', 
+          headers: { 'Content-Type': 'application/json' }, 
+          body: JSON.stringify({ template: newPost }) 
+        });
+        setNewPost('');
+        setPosts(await (await fetch('/api/auto-posts')).json());
+        alert('✅ Пост добавлен!');
+      };
+      
+      const deletePost = async (id) => {
+        if (!confirm('Удалить этот пост?')) return;
+        await fetch(`/api/auto-posts/${id}`, { method: 'DELETE' });
+        setPosts(await (await fetch('/api/auto-posts')).json());
+      };
+      
+      return e('div', { className: 'card' }, [
+        e('h2', { key: 'h2' }, ['📝 Авто-посты в чаты']),
+        e('div', { key: 'form', className: 'form-row' }, [
+          e('textarea', { 
+            placeholder: 'Текст поста (будет отправляться в целевые чаты автоматически)...', 
+            value: newPost, 
+            onChange: e => setNewPost(e.target.value),
+            rows: 3,
+            style: { width: '100%', marginBottom: '12px', padding: '12px', borderRadius: '8px', border: '1px solid #e2e8f0' }
+          })
+        ]),
+        e('button', { key: 'btn', onClick: addPost }, '➕ Добавить пост'),
+        e('div', { key: 'list', style: { marginTop: '16px' } }, 
+          posts && posts.length > 0 ? 
+            posts.map(p => e('div', { 
+              key: p.id, 
+              style: { 
+                padding: '12px', 
+                background: '#f7fafc', 
+                borderRadius: '8px', 
+                marginBottom: '8px',
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center'
+              }
+            }, [
+              e('span', { key: 'text', style: { flex: 1 } }, p.template),
+              e('button', { 
+                key: 'del', 
+                onClick: () => deletePost(p.id),
+                style: { 
+                  background: '#fc8181', 
+                  color: 'white', 
+                  border: 'none', 
+                  padding: '6px 12px', 
+                  borderRadius: '6px', 
+                  cursor: 'pointer',
+                  fontSize: '12px'
+                }
+              }, '🗑️ Удалить')
+            ])) :
+            e('div', { className: 'empty-state' }, '📭 Нет постов. Добавьте первый!')
+        )
+      ]);
+    }
+
     function Stats() {
       const [stats] = useFetch('/api/stats', []);
       if (!stats) return e('div', { className: 'card' }, [e('h2', {}, '📊 Аналитика'), e('div', {}, '⏳ Загрузка...')]);
@@ -506,6 +574,11 @@
         e('div', { key: 'config-grid', className: 'grid-2' }, [
           e(ChatsCard, { key: 'ch' }),
           e(LimitsCard, { key: 'l' })
+        ]),
+        
+        // Авто-посты - полная ширина
+        e('div', { key: 'posts-grid', className: 'full-width', style: { marginBottom: '24px' } }, [
+          e(AutoPostsCard, { key: 'ap' })
         ]),
         
         // Пользователи и аналитика - 2 колонки

@@ -398,6 +398,44 @@ app.get('/api/target-users', async (_req, res) => {
   }
 });
 
+// Auto-posts management
+app.get('/api/auto-posts', async (_req, res) => {
+  try {
+    if (!db) return res.json([]);
+    const { rows } = await db.query('SELECT * FROM auto_posts ORDER BY created_at DESC');
+    res.json(rows);
+  } catch (e) {
+    res.status(500).json({ error: 'failed_to_get_posts' });
+  }
+});
+
+app.post('/api/auto-posts', async (req, res) => {
+  try {
+    const { template, category = 'general', weight = 1 } = req.body || {};
+    if (!template) return res.status(400).json({ error: 'template_required' });
+    if (!db) return res.json({ ok: false, error: 'no_db' });
+    
+    const { rows } = await db.query(
+      'INSERT INTO auto_posts (template, category, weight) VALUES ($1, $2, $3) RETURNING *',
+      [template, category, weight]
+    );
+    res.json(rows[0]);
+  } catch (e) {
+    res.status(500).json({ error: 'failed_to_create_post' });
+  }
+});
+
+app.delete('/api/auto-posts/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    if (!db) return res.json({ ok: false, error: 'no_db' });
+    await db.query('DELETE FROM auto_posts WHERE id = $1', [id]);
+    res.json({ ok: true });
+  } catch (e) {
+    res.status(500).json({ error: 'failed_to_delete_post' });
+  }
+});
+
 // Stats (enhanced analytics)
 app.get('/api/stats', async (_req, res) => {
   try {
