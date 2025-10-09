@@ -312,30 +312,38 @@ def within_schedule(cur, scenario_id):
 
 
 async def main():
+    print('📋 Checking API credentials...')
     if not API_ID or not API_HASH:
+        print('❌ TELEGRAM_API_ID / TELEGRAM_API_HASH are required')
         raise RuntimeError('TELEGRAM_API_ID / TELEGRAM_API_HASH are required')
+    print('✅ API credentials OK')
 
+    print('🔐 Creating Telegram client...')
     if SESSION:
+        print('Using StringSession')
         client = TelegramClient(StringSession(SESSION), API_ID, API_HASH)
     else:
+        print('Using file session')
         client = TelegramClient('userbot.session', API_ID, API_HASH)
     
+    print('🔌 Connecting to Telegram...')
     try:
         await client.start()
         me = await client.get_me()
-        print(f'User-bot started successfully as {me.first_name}')
+        print(f'✅ User-bot started successfully as {me.first_name}')
     except Exception as e:
-        print(f'Failed to start user-bot: {e}')
+        print(f'❌ Failed to start user-bot: {e}')
         print('User-bot requires phone login. Please provide USERBOT_SESSION string.')
         return
 
+    print('🗄️ Connecting to database...')
     try:
         conn = db_conn()
         conn.autocommit = True
         cur = conn.cursor()
-        print('Database connection established')
+        print('✅ Database connection established')
     except Exception as e:
-        print(f'Database connection failed: {e}')
+        print(f'❌ Database connection failed: {e}')
         return
 
     scenario_id = await asyncio.get_event_loop().run_in_executor(None, get_active_scenario, cur)
