@@ -27,6 +27,11 @@ app.get('/api/health', (_req, res) => {
   res.json({ ok: true });
 });
 
+// Root redirect to admin
+app.get('/', (_req, res) => {
+  res.redirect('/admin');
+});
+
 // Settings: prompt
 app.get('/api/settings/prompt', async (_req, res) => {
   try {
