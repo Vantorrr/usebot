@@ -525,9 +525,22 @@ async def main():
             # Get or create user profile (run DB calls in thread pool)
             first_name = getattr(sender, 'first_name', '') or ''
             loop = asyncio.get_event_loop()
-            profile = await loop.run_in_executor(None, get_user_profile, cur, user_id, first_name)
+            
+            # CRITICAL: Increment interaction FIRST, before reading profile
+            cur.execute(
+                """INSERT INTO user_profiles (user_id, first_name, interaction_count) 
+                   VALUES (%s, %s, 1) 
+                   ON CONFLICT (user_id) 
+                   DO UPDATE SET interaction_count = user_profiles.interaction_count + 1, updated_at = now()
+                   RETURNING *""",
+                (user_id, first_name)
+            )
+            profile_row = cur.fetchone()
+            profile = dict(profile_row) if profile_row else {}
+            
             stage = await loop.run_in_executor(None, get_dialog_step, cur, user_id, chat_id)
             print(f"[DEBUG] Current stage for {user_id}/{chat_id}: {stage}")
+            print(f"[DEBUG] Profile interaction_count: {profile.get('interaction_count', 0)}")
             user_text = text
             
             # Detect user type and update profile
@@ -543,10 +556,10 @@ async def main():
             reply_text = None
             variant_used = None
             
-            # Включаем ЛЛМ для всех сообщений кроме самого первого
+            # Включаем ЛЛМ для всех сообщений после первого (когда interaction_count >= 2)
             print(f"[DEBUG] Stage={stage}, Interactions={interactions}, OPENAI_KEY={'SET' if OPENAI_API_KEY else 'MISSING'}")
             
-            if oai and interactions >= 1:
+            if oai and interactions >= 2:
                 try:
                     reply_text = await asyncio.get_event_loop().run_in_executor(
                         None,
@@ -595,16 +608,9 @@ async def main():
             if stage >= 3 and cta_url in reply_text:
                 await loop.run_in_executor(None, track_conversion, cur, user_id, chat_id, 'cta_sent', stage, variant_used)
             
-            # Update interaction count and advance stage
-            new_count = profile.get('interaction_count', 0) + 1
-            print(f"[DEBUG] Updating interaction_count from {profile.get('interaction_count', 0)} to {new_count}")
-            await loop.run_in_executor(None, update_user_profile, cur, user_id, interaction_count=new_count)
+            # Advance stage (interaction already updated above)
             next_step = await loop.run_in_executor(None, inc_dialog_step, cur, user_id, chat_id, scenario_id)
             print(f"[DEBUG] Advanced to step {next_step}")
-            
-            # Verify update
-            updated = await loop.run_in_executor(None, get_user_profile, cur, user_id, first_name)
-            print(f"[DEBUG] Verified interaction_count: {updated.get('interaction_count', 0)}")
         except Exception as e:
             await asyncio.get_event_loop().run_in_executor(None, log_event, cur, 'error', {'error': str(e)})
 
