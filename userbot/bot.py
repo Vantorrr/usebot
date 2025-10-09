@@ -66,24 +66,24 @@ def db_conn():
         )
 
 
-async def get_prompt(cur):
+def get_prompt(cur):
     cur.execute("SELECT value FROM settings WHERE key = %s", ('prompt',))
     row = cur.fetchone()
     return row['value'] if row else ''
 
-async def get_cta(cur):
+def get_cta(cur):
     cur.execute("SELECT value FROM settings WHERE key = %s", ('cta_url',))
     row = cur.fetchone()
     return row['value'] if row else ''
 
 
-async def get_active_scenario(cur):
+def get_active_scenario(cur):
     cur.execute("SELECT id FROM scenarios WHERE is_active = TRUE ORDER BY created_at DESC LIMIT 1")
     row = cur.fetchone()
     return row['id'] if row else None
 
 
-async def get_step_message(cur, scenario_id, step_order):
+def get_step_message(cur, scenario_id, step_order):
     cur.execute(
         "SELECT message_template FROM scenario_steps WHERE scenario_id = %s AND step_order = %s",
         (scenario_id, step_order)
@@ -91,12 +91,12 @@ async def get_step_message(cur, scenario_id, step_order):
     row = cur.fetchone()
     return row['message_template'] if row else None
 
-async def get_dialog_step(cur, user_id, chat_id):
+def get_dialog_step(cur, user_id, chat_id):
     cur.execute("SELECT step_order FROM dialog_states WHERE user_id = %s AND chat_id = %s", (user_id, chat_id))
     row = cur.fetchone()
     return row['step_order'] if row else 0
 
-async def get_user_profile(cur, user_id, first_name=''):
+def get_user_profile(cur, user_id, first_name=''):
     cur.execute("SELECT * FROM user_profiles WHERE user_id = %s", (user_id,))
     row = cur.fetchone()
     if not row:
@@ -108,12 +108,12 @@ async def get_user_profile(cur, user_id, first_name=''):
         row = cur.fetchone()
     return dict(row) if row else {}
 
-async def update_user_profile(cur, user_id, **updates):
+def update_user_profile(cur, user_id, **updates):
     set_clause = ', '.join(f"{k} = %s" for k in updates.keys())
     values = list(updates.values()) + [user_id]
     cur.execute(f"UPDATE user_profiles SET {set_clause}, updated_at = now() WHERE user_id = %s", values)
 
-async def detect_user_type(text: str) -> str:
+def detect_user_type(text: str) -> str:
     """Simple sentiment/type detection"""
     text_lower = text.lower()
     
@@ -130,7 +130,7 @@ async def detect_user_type(text: str) -> str:
     
     return 'default'
 
-async def get_ab_template(cur, stage: int, user_type: str = 'default'):
+def get_ab_template(cur, stage: int, user_type: str = 'default'):
     """Get weighted random template for A/B testing"""
     cur.execute(
         """
@@ -158,7 +158,7 @@ async def get_ab_template(cur, stage: int, user_type: str = 'default'):
     row = cur.fetchone()
     return (row['template'], row['variant_name']) if row else (None, None)
 
-async def track_conversion(cur, user_id, chat_id, conversion_type, stage, variant_used):
+def track_conversion(cur, user_id, chat_id, conversion_type, stage, variant_used):
     cur.execute(
         "INSERT INTO conversions (user_id, chat_id, conversion_type, stage, variant_used) VALUES (%s, %s, %s, %s, %s)",
         (user_id, chat_id, conversion_type, stage, variant_used)
@@ -277,7 +277,7 @@ def build_system_prompt(base_prompt: str, cta_url: str, stage: int, user_type: s
         f"Текущий этап: {stage+1}. {safety}"
     )
 
-async def generate_reply_llm(client_oai: OpenAI, model: str, base_prompt: str, cta_url: str, stage: int, first_name: str, user_text: str, user_type: str = 'default') -> str:
+def generate_reply_llm(client_oai: OpenAI, model: str, base_prompt: str, cta_url: str, stage: int, first_name: str, user_text: str, user_type: str = 'default') -> str:
     sys = build_system_prompt(base_prompt, cta_url, stage, user_type)
     name_part = f"{first_name}" if first_name else ""
     messages = [
@@ -338,11 +338,11 @@ async def main():
         print(f'Database connection failed: {e}')
         return
 
-    scenario_id = await get_active_scenario(cur)
+    scenario_id = await asyncio.get_event_loop().run_in_executor(None, get_active_scenario, cur)
     if not scenario_id:
         print('No active scenario; idle.')
-    base_prompt = await get_prompt(cur)
-    cta_url = await get_cta(cur)
+    base_prompt = await asyncio.get_event_loop().run_in_executor(None, get_prompt, cur)
+    cta_url = await asyncio.get_event_loop().run_in_executor(None, get_cta, cur)
     
     # Get settings from database
     try:
