@@ -308,30 +308,9 @@ app.get('/api/stats', async (_req, res) => {
 // Static admin (minimal React via CDN)
 app.use('/admin', express.static(path.join(__dirname, '../public')));
 
-// Telegram admin bot (prompt control)
-const botToken = process.env.TELEGRAM_BOT_TOKEN;
-const adminId = process.env.ADMIN_TELEGRAM_ID ? Number(process.env.ADMIN_TELEGRAM_ID) : undefined;
-let bot = null;
-if (botToken) {
-  bot = new Telegraf(botToken);
-  bot.start((ctx) => ctx.reply('USEbot admin: /get_prompt, /set_prompt <text>'));
-  bot.command('get_prompt', async (ctx) => {
-    if (adminId && ctx.from.id !== adminId) return;
-    const { rows } = await db.query('SELECT value FROM settings WHERE key = $1', ['prompt']);
-    await ctx.reply(rows[0]?.value ?? '(empty)');
-  });
-  bot.command('set_prompt', async (ctx) => {
-    if (adminId && ctx.from.id !== adminId) return;
-    const text = ctx.message.text.replace(/^\/set_prompt\s*/, '');
-    if (!text) return ctx.reply('Usage: /set_prompt <text>');
-    await db.query(
-      'INSERT INTO settings (key, value) VALUES ($1, $2) ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value, updated_at = now()',
-      ['prompt', text]
-    );
-    await ctx.reply('Prompt updated.');
-  });
-  bot.launch().then(() => console.log('Admin bot launched')).catch(console.error);
-}
+// Telegram admin bot (prompt control) - DISABLED to avoid conflicts
+// TODO: Enable after stopping other instances
+console.log('Admin bot disabled to avoid conflicts. Use web admin instead.');
 
 async function startServer() {
   try {
@@ -351,7 +330,7 @@ async function startServer() {
 startServer();
 
 // Graceful stop
-process.once('SIGINT', () => bot?.stop('SIGINT'));
-process.once('SIGTERM', () => bot?.stop('SIGTERM'));
+process.once('SIGINT', () => console.log('Server stopped'));
+process.once('SIGTERM', () => console.log('Server stopped'));
 
 
