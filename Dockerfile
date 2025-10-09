@@ -1,7 +1,7 @@
 FROM node:18-alpine
 
 # Install Python for userbot
-RUN apk add --no-cache python3 py3-pip
+RUN apk add --no-cache python3 py3-pip py3-venv
 
 WORKDIR /app
 
@@ -12,9 +12,11 @@ COPY package.json ./
 # Install Node dependencies
 RUN cd server && npm install --production
 
-# Copy userbot requirements and install
+# Create Python virtual environment and install userbot dependencies
 COPY userbot/requirements.txt ./userbot/
-RUN cd userbot && pip3 install --no-cache-dir -r requirements.txt
+RUN python3 -m venv /app/venv && \
+    . /app/venv/bin/activate && \
+    pip install --no-cache-dir -r userbot/requirements.txt
 
 # Copy source code
 COPY server/src ./server/src

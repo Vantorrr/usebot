@@ -10,7 +10,7 @@ export function startUserbot() {
   
   console.log('Starting user-bot...');
   
-  const userbot = spawn('python3', ['bot.py'], {
+  const userbot = spawn('/app/venv/bin/python', ['bot.py'], {
     cwd: userbotPath,
     stdio: ['pipe', 'pipe', 'pipe'],
     env: { ...process.env }
