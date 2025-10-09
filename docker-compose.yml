@@ -1,0 +1,71 @@
+version: '3.9'
+
+services:
+  postgres:
+    image: postgres:15-alpine
+    container_name: usebot-postgres
+    environment:
+      POSTGRES_DB: usebot
+      POSTGRES_USER: usebot
+      POSTGRES_PASSWORD: usebot
+    ports:
+      - "5432:5432"
+    volumes:
+      - db_data:/var/lib/postgresql/data
+      - ./db/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  server:
+    build: ./server
+    container_name: usebot-server
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      POSTGRES_HOST: postgres
+      POSTGRES_PORT: 5432
+      POSTGRES_DB: usebot
+      POSTGRES_USER: usebot
+      POSTGRES_PASSWORD: usebot
+      SERVER_PORT: 8080
+      TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN:-}
+      ADMIN_TELEGRAM_ID: ${ADMIN_TELEGRAM_ID:-}
+    ports:
+      - "8080:8080"
+    volumes:
+      - ./server:/app
+    command: sh -c "npm install && npm run start"
+
+  userbot:
+    build: ./userbot
+    container_name: usebot-userbot
+    depends_on:
+      postgres:
+        condition: service_healthy
+    profiles: ["userbot"]
+    environment:
+      POSTGRES_HOST: postgres
+      POSTGRES_PORT: 5432
+      POSTGRES_DB: usebot
+      POSTGRES_USER: usebot
+      POSTGRES_PASSWORD: usebot
+      TELEGRAM_API_ID: ${TELEGRAM_API_ID:-}
+      TELEGRAM_API_HASH: ${TELEGRAM_API_HASH:-}
+      USERBOT_SESSION: ${USERBOT_SESSION:-}
+      TARGET_CHAT_IDS: ${TARGET_CHAT_IDS:-}
+      MIN_PAUSE_SEC: ${MIN_PAUSE_SEC:-30}
+      MAX_PAUSE_SEC: ${MAX_PAUSE_SEC:-120}
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      LLM_MODEL: ${LLM_MODEL:-gpt-4o-mini}
+    volumes:
+      - ./userbot:/app
+    command: sh -c "pip install -r requirements.txt && python bot.py"
+
+volumes:
+  db_data:
+
+

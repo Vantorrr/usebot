@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>USEbot Admin</title>
+  <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+  <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+  <style>
+    body { font-family: system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif; margin: 24px; }
+    .card { border: 1px solid #e5e7eb; border-radius: 8px; padding: 16px; margin-bottom: 16px; }
+    input, textarea, button { font-size: 14px; }
+    textarea { width: 100%; min-height: 120px; }
+    table { border-collapse: collapse; width: 100%; }
+    th, td { border: 1px solid #e5e7eb; padding: 8px; text-align: left; }
+  </style>
+</head>
+<body>
+  <h1>USEbot Admin</h1>
+  <div id="root"></div>
+  <script>
+    const e = React.createElement;
+
+    function useFetch(url, deps) {
+      const [data, setData] = React.useState(null);
+      React.useEffect(() => {
+        fetch(url).then(r => r.json()).then(setData).catch(() => setData(null));
+      }, deps);
+      return [data, setData];
+    }
+
+    function PromptCard() {
+      const [data, setData] = useFetch('/api/settings/prompt', []);
+      const [value, setValue] = React.useState('');
+      React.useEffect(() => { if (data && data.prompt !== undefined) setValue(data.prompt); }, [data]);
+      const save = async () => {
+        await fetch('/api/settings/prompt', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ prompt: value })});
+        alert('Сохранено');
+      };
+      return e('div', { className: 'card' }, [
+        e('h2', { key: 'h2' }, 'Промт'),
+        e('textarea', { key: 'ta', value, onChange: e => setValue(e.target.value) }),
+        e('div', { key: 'buttons' }, [
+          e('button', { onClick: save }, 'Сохранить')
+        ])
+      ]);
+    }
+
+    function Scenarios() {
+      const [list, setList] = useFetch('/api/scenarios', []);
+      const [name, setName] = React.useState('');
+      const create = async () => {
+        const r = await fetch('/api/scenarios', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name })});
+        if (r.ok) { setName(''); fetch('/api/scenarios').then(r => r.json()).then(setList); }
+      };
+      return e('div', { className: 'card' }, [
+        e('h2', { key: 'h2' }, 'Сценарии'),
+        e('div', { key: 'form' }, [
+          e('input', { placeholder: 'Название', value: name, onChange: e => setName(e.target.value) }),
+          e('button', { onClick: create, style: { marginLeft: 8 } }, 'Создать')
+        ]),
+        e('table', { key: 'table' }, [
+          e('thead', {}, e('tr', {}, [e('th', {}, 'ID'), e('th', {}, 'Название'), e('th', {}, 'Активен')])),
+          e('tbody', {}, (list || []).map(s => e('tr', { key: s.id }, [e('td', {}, s.id), e('td', {}, s.name), e('td', {}, String(s.is_active))])))
+        ])
+      ]);
+    }
+
+    function CtaCard() {
+      const [data] = useFetch('/api/settings/cta', []);
+      const [value, setValue] = React.useState('');
+      React.useEffect(() => { if (data && data.cta !== undefined) setValue(data.cta); }, [data]);
+      const save = async () => {
+        await fetch('/api/settings/cta', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ cta: value })});
+        alert('Сохранено');
+      };
+      return e('div', { className: 'card' }, [
+        e('h2', { key: 'h2' }, 'CTA ссылка'),
+        e('input', { key: 'inp', style: { width: '100%' }, value, onChange: e => setValue(e.target.value) }),
+        e('div', { key: 'buttons' }, [ e('button', { onClick: save }, 'Сохранить') ])
+      ]);
+    }
+
+    function Stats() {
+      const [stats] = useFetch('/api/stats', []);
+      if (!stats) return e('div', { className: 'card' }, [e('h2', {}, 'Статистика'), e('div', {}, 'Загрузка...')]);
+      
+      return e('div', { className: 'card' }, [
+        e('h2', { key: 'h2' }, 'Аналитика'),
+        e('div', { key: 'basic' }, `Диалогов: ${stats.dialogs} | Событий: ${stats.events} | Конверсий: ${stats.conversions}`),
+        e('h3', { key: 'h3' }, 'Конверсии по этапам'),
+        e('div', { key: 'stages' }, (stats.conversionsByStage || []).map(s => `Этап ${s.stage}: ${s.count}`).join(' | ') || 'Нет данных'),
+        e('h3', { key: 'h4' }, 'Типы пользователей'),
+        e('div', { key: 'types' }, (stats.userTypes || []).map(t => `${t.user_type}: ${t.count}`).join(' | ') || 'Нет данных'),
+        e('h3', { key: 'h5' }, 'A/B тесты (топ варианты)'),
+        e('div', { key: 'ab' }, (stats.abPerformance || []).slice(0, 5).map(ab => `${ab.variant} (${ab.user_type}): ${ab.conversions}/${ab.sent}`).join(' | ') || 'Нет данных')
+      ]);
+    }
+
+    function App() {
+      return e(React.Fragment, null, [
+        e(PromptCard, { key: 'p' }),
+        e(CtaCard, { key: 'c' }),
+        e(Scenarios, { key: 's' }),
+        e(Stats, { key: 'st' })
+      ]);
+    }
+
+    ReactDOM.createRoot(document.getElementById('root')).render(e(App));
+  </script>
+</body>
+</html>
+
+
