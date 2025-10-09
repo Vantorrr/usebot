@@ -298,10 +298,17 @@ async def main():
         raise RuntimeError('TELEGRAM_API_ID / TELEGRAM_API_HASH are required')
 
     if SESSION:
-    client = TelegramClient(StringSession(SESSION), API_ID, API_HASH)
+        client = TelegramClient(StringSession(SESSION), API_ID, API_HASH)
     else:
         client = TelegramClient('userbot.session', API_ID, API_HASH)
-    await client.start()
+    
+    try:
+        await client.start()
+        print(f'User-bot started successfully as {(await client.get_me()).first_name}')
+    except Exception as e:
+        print(f'Failed to start user-bot: {e}')
+        print('User-bot requires phone login. Please provide USERBOT_SESSION string.')
+        return
 
     conn = db_conn()
     conn.autocommit = True
