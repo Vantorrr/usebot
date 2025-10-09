@@ -255,6 +255,118 @@ app.delete('/api/scenarios/:id', async (req, res) => {
   }
 });
 
+// Settings: keywords
+app.get('/api/settings/keywords', async (_req, res) => {
+  try {
+    if (!db) return res.json({ keywords: 'знакомства,отношения,пара,любовь' });
+    const { rows } = await db.query('SELECT value FROM settings WHERE key = $1', ['keywords']);
+    res.json({ keywords: rows[0]?.value ?? 'знакомства,отношения,пара,любовь' });
+  } catch (e) {
+    res.json({ keywords: 'Ошибка БД: ' + e.message });
+  }
+});
+
+app.put('/api/settings/keywords', async (req, res) => {
+  try {
+    const { keywords } = req.body || {};
+    if (typeof keywords !== 'string') {
+      return res.status(400).json({ error: 'invalid_keywords' });
+    }
+    if (!db) return res.json({ ok: false, error: 'no_db' });
+    await db.query(
+      'INSERT INTO settings (key, value) VALUES ($1, $2) ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value, updated_at = now()',
+      ['keywords', keywords]
+    );
+    res.json({ ok: true });
+  } catch (e) {
+    res.status(500).json({ error: 'failed_to_set_keywords' });
+  }
+});
+
+// Settings: target chats
+app.get('/api/settings/chats', async (_req, res) => {
+  try {
+    if (!db) return res.json({ chats: '' });
+    const { rows } = await db.query('SELECT value FROM settings WHERE key = $1', ['target_chats']);
+    res.json({ chats: rows[0]?.value ?? '' });
+  } catch (e) {
+    res.json({ chats: 'Ошибка БД: ' + e.message });
+  }
+});
+
+app.put('/api/settings/chats', async (req, res) => {
+  try {
+    const { chats } = req.body || {};
+    if (typeof chats !== 'string') {
+      return res.status(400).json({ error: 'invalid_chats' });
+    }
+    if (!db) return res.json({ ok: false, error: 'no_db' });
+    await db.query(
+      'INSERT INTO settings (key, value) VALUES ($1, $2) ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value, updated_at = now()',
+      ['target_chats', chats]
+    );
+    res.json({ ok: true });
+  } catch (e) {
+    res.status(500).json({ error: 'failed_to_set_chats' });
+  }
+});
+
+// Settings: limits
+app.get('/api/settings/limits', async (_req, res) => {
+  try {
+    if (!db) return res.json({ daily_dm_limit: '7', chat_posts_per_day: '3' });
+    const dm_limit = await db.query('SELECT value FROM settings WHERE key = $1', ['daily_dm_limit']);
+    const posts_limit = await db.query('SELECT value FROM settings WHERE key = $1', ['chat_posts_per_day']);
+    res.json({ 
+      daily_dm_limit: dm_limit.rows[0]?.value ?? '7',
+      chat_posts_per_day: posts_limit.rows[0]?.value ?? '3'
+    });
+  } catch (e) {
+    res.json({ daily_dm_limit: '7', chat_posts_per_day: '3' });
+  }
+});
+
+app.put('/api/settings/limits', async (req, res) => {
+  try {
+    const { daily_dm_limit, chat_posts_per_day } = req.body || {};
+    if (!db) return res.json({ ok: false, error: 'no_db' });
+    
+    if (daily_dm_limit !== undefined) {
+      await db.query(
+        'INSERT INTO settings (key, value) VALUES ($1, $2) ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value, updated_at = now()',
+        ['daily_dm_limit', String(daily_dm_limit)]
+      );
+    }
+    
+    if (chat_posts_per_day !== undefined) {
+      await db.query(
+        'INSERT INTO settings (key, value) VALUES ($1, $2) ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value, updated_at = now()',
+        ['chat_posts_per_day', String(chat_posts_per_day)]
+      );
+    }
+    
+    res.json({ ok: true });
+  } catch (e) {
+    res.status(500).json({ error: 'failed_to_set_limits' });
+  }
+});
+
+// Target users list
+app.get('/api/target-users', async (_req, res) => {
+  try {
+    if (!db) return res.json([]);
+    const { rows } = await db.query(`
+      SELECT user_id, username, first_name, found_in_chat, keyword_matched, status, contacted_at, created_at 
+      FROM target_users 
+      ORDER BY created_at DESC 
+      LIMIT 50
+    `);
+    res.json(rows);
+  } catch (e) {
+    res.status(500).json({ error: 'failed_to_get_users' });
+  }
+});
+
 // Stats (enhanced analytics)
 app.get('/api/stats', async (_req, res) => {
   try {

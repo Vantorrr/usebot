@@ -138,7 +138,8 @@ ON CONFLICT DO NOTHING;
 INSERT INTO settings (key, value) VALUES
   ('keywords', 'знакомства,отношения,пара,любовь,встречи,девушка,парень,одиночество,свидание'),
   ('daily_dm_limit', '7'),
-  ('chat_posts_per_day', '3')
+  ('chat_posts_per_day', '3'),
+  ('target_chats', '')
 ON CONFLICT (key) DO NOTHING;
 
 -- Target users tracking

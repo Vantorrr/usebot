@@ -287,6 +287,96 @@
       ]);
     }
 
+    function KeywordsCard() {
+      const [data, setData] = useFetch('/api/settings/keywords', []);
+      const [value, setValue] = React.useState('');
+      React.useEffect(() => { if (data && data.keywords !== undefined) setValue(data.keywords); }, [data]);
+      const save = async () => {
+        await fetch('/api/settings/keywords', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ keywords: value })});
+        alert('🔍 Ключевые слова сохранены!');
+      };
+      return e('div', { className: 'card' }, [
+        e('h2', { key: 'h2' }, ['🔍 Ключевые слова']),
+        e('textarea', { key: 'ta', value, onChange: e => setValue(e.target.value), placeholder: 'знакомства,отношения,пара,любовь,встречи...' }),
+        e('div', { key: 'help', style: { fontSize: '12px', color: '#666', marginTop: '8px' } }, 'Через запятую. Бот будет искать людей, которые пишут эти слова в чатах.'),
+        e('button', { key: 'btn', onClick: save }, '🔍 Сохранить слова')
+      ]);
+    }
+
+    function ChatsCard() {
+      const [data, setData] = useFetch('/api/settings/chats', []);
+      const [value, setValue] = React.useState('');
+      React.useEffect(() => { if (data && data.chats !== undefined) setValue(data.chats); }, [data]);
+      const save = async () => {
+        await fetch('/api/settings/chats', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ chats: value })});
+        alert('💬 Чаты сохранены!');
+      };
+      return e('div', { className: 'card' }, [
+        e('h2', { key: 'h2' }, ['💬 Целевые чаты']),
+        e('textarea', { key: 'ta', value, onChange: e => setValue(e.target.value), placeholder: '@chat1,@chat2,-1001234567890...' }),
+        e('div', { key: 'help', style: { fontSize: '12px', color: '#666', marginTop: '8px' } }, 'Через запятую. Юзернеймы (@chat) или ID (-100...). Бот будет слушать эти чаты и постить туда.'),
+        e('button', { key: 'btn', onClick: save }, '💬 Сохранить чаты')
+      ]);
+    }
+
+    function LimitsCard() {
+      const [data, setData] = useFetch('/api/settings/limits', []);
+      const [dmLimit, setDmLimit] = React.useState('7');
+      const [postsLimit, setPostsLimit] = React.useState('3');
+      React.useEffect(() => { 
+        if (data) {
+          if (data.daily_dm_limit !== undefined) setDmLimit(data.daily_dm_limit);
+          if (data.chat_posts_per_day !== undefined) setPostsLimit(data.chat_posts_per_day);
+        }
+      }, [data]);
+      const save = async () => {
+        await fetch('/api/settings/limits', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ 
+          daily_dm_limit: parseInt(dmLimit), 
+          chat_posts_per_day: parseInt(postsLimit) 
+        })});
+        alert('⚡ Лимиты сохранены!');
+      };
+      return e('div', { className: 'card' }, [
+        e('h2', { key: 'h2' }, ['⚡ Лимиты безопасности']),
+        e('div', { key: 'dm-row', className: 'form-row' }, [
+          e('div', { style: { flex: 1 } }, [
+            e('label', { style: { display: 'block', marginBottom: '4px', fontSize: '14px', fontWeight: '500' } }, 'ЛС в день:'),
+            e('input', { type: 'number', value: dmLimit, onChange: e => setDmLimit(e.target.value), min: '1', max: '20' })
+          ])
+        ]),
+        e('div', { key: 'posts-row', className: 'form-row' }, [
+          e('div', { style: { flex: 1 } }, [
+            e('label', { style: { display: 'block', marginBottom: '4px', fontSize: '14px', fontWeight: '500' } }, 'Постов в день:'),
+            e('input', { type: 'number', value: postsLimit, onChange: e => setPostsLimit(e.target.value), min: '1', max: '10' })
+          ])
+        ]),
+        e('button', { key: 'btn', onClick: save }, '⚡ Сохранить лимиты')
+      ]);
+    }
+
+    function TargetUsersCard() {
+      const [users] = useFetch('/api/target-users', []);
+      return e('div', { className: 'card' }, [
+        e('h2', { key: 'h2' }, ['👥 Найденные пользователи']),
+        users && users.length > 0 ? 
+          e('table', { key: 'table' }, [
+            e('thead', {}, e('tr', {}, [
+              e('th', {}, 'Имя'), 
+              e('th', {}, 'Чат'), 
+              e('th', {}, 'Слово'), 
+              e('th', {}, 'Статус')
+            ])),
+            e('tbody', {}, users.slice(0, 10).map(u => e('tr', { key: u.user_id }, [
+              e('td', {}, u.first_name || u.username || u.user_id), 
+              e('td', {}, u.found_in_chat), 
+              e('td', {}, u.keyword_matched),
+              e('td', {}, u.status === 'found' ? '🔍 Найден' : u.status === 'contacted' ? '💌 Написано' : '✅ Ответил')
+            ])))
+          ]) :
+          e('div', { key: 'empty', className: 'empty-state' }, '🔍 Пока никого не найдено')
+      ]);
+    }
+
     function Stats() {
       const [stats] = useFetch('/api/stats', []);
       if (!stats) return e('div', { className: 'card' }, [e('h2', {}, '📊 Аналитика'), e('div', {}, '⏳ Загрузка...')]);
@@ -311,11 +401,6 @@
         e('div', { key: 'stages' }, (stats.conversionsByStage || []).length > 0 ? 
           (stats.conversionsByStage || []).map(s => `Этап ${s.stage}: ${s.count}`).join(' • ') : 
           '📈 Данных пока нет'
-        ),
-        e('h3', { key: 'h4' }, '👥 Типы пользователей'),
-        e('div', { key: 'types' }, (stats.userTypes || []).length > 0 ? 
-          (stats.userTypes || []).map(t => `${t.user_type}: ${t.count}`).join(' • ') : 
-          '🎭 Данных пока нет'
         )
       ]);
     }
@@ -324,7 +409,11 @@
       return e('div', { className: 'grid' }, [
         e(PromptCard, { key: 'p' }),
         e(CtaCard, { key: 'c' }),
+        e(KeywordsCard, { key: 'k' }),
+        e(ChatsCard, { key: 'ch' }),
+        e(LimitsCard, { key: 'l' }),
         e(Scenarios, { key: 's' }),
+        e(TargetUsersCard, { key: 'tu' }),
         e(Stats, { key: 'st' })
       ]);
     }
