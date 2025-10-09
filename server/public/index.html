@@ -42,34 +42,68 @@
     
     .grid {
       display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
+      grid-template-columns: repeat(3, 1fr);
       gap: 24px;
       margin-bottom: 32px;
     }
     
+    .grid-2 {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 24px;
+      margin-bottom: 32px;
+    }
+    
+    .full-width {
+      grid-column: 1 / -1;
+    }
+    
     .card {
       background: white;
-      border-radius: 16px;
-      padding: 24px;
-      box-shadow: 0 8px 32px rgba(0,0,0,0.1);
+      border-radius: 20px;
+      padding: 28px;
+      box-shadow: 0 10px 40px rgba(0,0,0,0.08);
       backdrop-filter: blur(10px);
-      border: 1px solid rgba(255,255,255,0.2);
-      transition: transform 0.2s ease, box-shadow 0.2s ease;
+      border: 1px solid rgba(255,255,255,0.3);
+      transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+      position: relative;
+      overflow: hidden;
+      min-height: 200px;
+      display: flex;
+      flex-direction: column;
+    }
+    
+    .card::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      height: 4px;
+      background: linear-gradient(90deg, #667eea 0%, #764ba2 50%, #f093fb 100%);
     }
     
     .card:hover {
-      transform: translateY(-4px);
-      box-shadow: 0 12px 48px rgba(0,0,0,0.15);
+      transform: translateY(-6px);
+      box-shadow: 0 20px 60px rgba(0,0,0,0.12);
+    }
+    
+    .card-content {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
     }
     
     .card h2 {
       color: #2d3748;
-      font-size: 1.5rem;
-      font-weight: 600;
-      margin-bottom: 16px;
+      font-size: 1.4rem;
+      font-weight: 700;
+      margin-bottom: 20px;
       display: flex;
       align-items: center;
-      gap: 8px;
+      gap: 12px;
+      padding-bottom: 12px;
+      border-bottom: 2px solid #f7fafc;
     }
     
     .card h3 {
@@ -112,37 +146,71 @@
       background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
       color: white;
       border: none;
-      padding: 12px 24px;
-      border-radius: 8px;
+      padding: 14px 28px;
+      border-radius: 12px;
       font-size: 14px;
       font-weight: 600;
       cursor: pointer;
-      transition: all 0.2s ease;
-      margin-top: 12px;
+      transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+      margin-top: auto;
+      box-shadow: 0 4px 15px rgba(102, 126, 234, 0.2);
+      position: relative;
+      overflow: hidden;
+    }
+    
+    button::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: -100%;
+      width: 100%;
+      height: 100%;
+      background: linear-gradient(90deg, transparent, rgba(255,255,255,0.2), transparent);
+      transition: left 0.5s;
+    }
+    
+    button:hover::before {
+      left: 100%;
     }
     
     button:hover {
-      transform: translateY(-1px);
-      box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+      transform: translateY(-2px);
+      box-shadow: 0 8px 25px rgba(102, 126, 234, 0.4);
     }
     
     button:active {
-      transform: translateY(0);
+      transform: translateY(-1px);
     }
     
     .stats-grid {
       display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-      gap: 16px;
-      margin-bottom: 16px;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 20px;
+      margin-bottom: 24px;
     }
     
     .stat-item {
-      background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
       color: white;
-      padding: 16px;
-      border-radius: 12px;
+      padding: 24px 20px;
+      border-radius: 16px;
       text-align: center;
+      box-shadow: 0 8px 25px rgba(102, 126, 234, 0.3);
+      transition: transform 0.3s ease;
+    }
+    
+    .stat-item:hover {
+      transform: translateY(-4px);
+    }
+    
+    .stat-item:nth-child(2) {
+      background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+      box-shadow: 0 8px 25px rgba(240, 147, 251, 0.3);
+    }
+    
+    .stat-item:nth-child(3) {
+      background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+      box-shadow: 0 8px 25px rgba(79, 172, 254, 0.3);
     }
     
     .stat-number {
@@ -197,8 +265,14 @@
       padding: 32px;
     }
     
-    @media (max-width: 768px) {
+    @media (max-width: 1200px) {
       .grid {
+        grid-template-columns: repeat(2, 1fr);
+      }
+    }
+    
+    @media (max-width: 768px) {
+      .grid, .grid-2 {
         grid-template-columns: 1fr;
       }
       
@@ -211,7 +285,12 @@
       }
       
       .stats-grid {
-        grid-template-columns: repeat(2, 1fr);
+        grid-template-columns: 1fr;
+      }
+      
+      .card {
+        min-height: auto;
+        padding: 20px;
       }
     }
   </style>
@@ -244,9 +323,11 @@
         alert('✅ Промт сохранён!');
       };
       return e('div', { className: 'card' }, [
-        e('h2', { key: 'h2' }, ['🧠 Промт для LLM']),
-        e('textarea', { key: 'ta', value, onChange: e => setValue(e.target.value), placeholder: 'Введите системный промт для бота...' }),
-        e('button', { key: 'btn', onClick: save }, '💾 Сохранить промт')
+        e('div', { key: 'content', className: 'card-content' }, [
+          e('h2', { key: 'h2' }, ['🧠 Промт для LLM']),
+          e('textarea', { key: 'ta', value, onChange: e => setValue(e.target.value), placeholder: 'Введите системный промт для бота...', style: { flex: 1 } }),
+          e('button', { key: 'btn', onClick: save }, '💾 Сохранить промт')
+        ])
       ]);
     }
 
@@ -406,15 +487,32 @@
     }
 
     function App() {
-      return e('div', { className: 'grid' }, [
-        e(PromptCard, { key: 'p' }),
-        e(CtaCard, { key: 'c' }),
-        e(KeywordsCard, { key: 'k' }),
-        e(ChatsCard, { key: 'ch' }),
-        e(LimitsCard, { key: 'l' }),
-        e(Scenarios, { key: 's' }),
-        e(TargetUsersCard, { key: 'tu' }),
-        e(Stats, { key: 'st' })
+      return e(React.Fragment, null, [
+        // Основные настройки - 3 колонки
+        e('div', { key: 'main-grid', className: 'grid' }, [
+          e(PromptCard, { key: 'p' }),
+          e(CtaCard, { key: 'c' }),
+          e(KeywordsCard, { key: 'k' })
+        ]),
+        
+        // Чаты и лимиты - 2 колонки
+        e('div', { key: 'config-grid', className: 'grid-2' }, [
+          e(ChatsCard, { key: 'ch' }),
+          e(LimitsCard, { key: 'l' })
+        ]),
+        
+        // Сценарии - полная ширина
+        e('div', { key: 'scenarios-grid', className: 'grid' }, [
+          e('div', { key: 'scenarios-wrapper', className: 'full-width' }, [
+            e(Scenarios, { key: 's' })
+          ])
+        ]),
+        
+        // Пользователи и аналитика - 2 колонки
+        e('div', { key: 'analytics-grid', className: 'grid-2' }, [
+          e(TargetUsersCard, { key: 'tu' }),
+          e(Stats, { key: 'st' })
+        ])
       ]);
     }
 
