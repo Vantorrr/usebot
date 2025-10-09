@@ -5,6 +5,7 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 import { getDb } from './db.js';
 import { Telegraf } from 'telegraf';
+import { startUserbot } from './userbot.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -436,6 +437,13 @@ async function startServer() {
 
   app.listen(port, () => {
     console.log(`Server listening on port ${port}`);
+    
+    // Start user-bot as child process
+    if (process.env.TELEGRAM_API_ID && process.env.TELEGRAM_API_HASH) {
+      startUserbot();
+    } else {
+      console.log('User-bot disabled: missing TELEGRAM_API_ID/TELEGRAM_API_HASH');
+    }
   });
 }
 
