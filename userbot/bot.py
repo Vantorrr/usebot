@@ -351,13 +351,15 @@ def build_system_prompt(base_prompt: str, cta_url: str, stage: int, user_type: s
         'ВАЖНО: Отвечай на КОНКРЕТНЫЙ вопрос пользователя, не повторяй приветствия!'
     )
     
-    stage_hint = {
-        0: 'Диалог только начался.',
-        1: 'Продолжаешь знакомство, узнаёшь интересы.',
-        2: 'Можешь упомянуть тему отношений/знакомств.',
-        3: 'Расскажи про сервис ИИ для знакомств.',
-        4: 'Предложи ссылку на регистрацию.'
-    }.get(stage, 'Общайся естественно.')
+    # Подсказки по этапам (но всегда отвечай на вопрос!)
+    if stage <= 1:
+        stage_hint = 'Знакомишься, узнаёшь интересы собеседника.'
+    elif stage == 2:
+        stage_hint = 'Можешь естественно упомянуть тему отношений/знакомств, если это уместно в контексте.'
+    elif stage == 3:
+        stage_hint = 'Если спрашивают про тебя/твои интересы — расскажи про работу с сервисом ИИ для знакомств.'
+    else:  # stage >= 4
+        stage_hint = 'Можешь предложить попробовать сервис (ссылка в конце), но СНАЧАЛА ответь на вопрос собеседника!'
     
     return (
         f"{base_prompt}\n\nПерсона: {persona}\n\n"
@@ -370,9 +372,13 @@ def build_system_prompt(base_prompt: str, cta_url: str, stage: int, user_type: s
 def generate_reply_llm(client_oai, model: str, base_prompt: str, cta_url: str, stage: int, first_name: str, user_text: str, user_type: str = 'default') -> str:
     sys = build_system_prompt(base_prompt, cta_url, stage, user_type)
     name_part = f"{first_name}" if first_name else ""
+    
+    # Дополнительный контекст для ответа на вопрос
+    user_context = f"Пользователь ({name_part}) спрашивает: {user_text}\n\nОтветь на его вопрос естественно и по существу."
+    
     messages = [
         {"role": "system", "content": sys},
-        {"role": "user", "content": f"Пользователь ({name_part}): {user_text}"},
+        {"role": "user", "content": user_context},
     ]
     try:
         resp = client_oai.chat.completions.create(model=model, messages=messages, temperature=0.8, max_tokens=140)
