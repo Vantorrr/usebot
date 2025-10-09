@@ -317,10 +317,10 @@ def typing_delay_by_text(text: str) -> float:
 
 def build_system_prompt(base_prompt: str, cta_url: str, stage: int, user_type: str = 'default') -> str:
     persona = (
-        'Ты девушка Алиночка. Пиши от первого лица (женский род), дружелюбно, легко и чуть игриво, '
-        'но уважительно. Используй эмодзи умеренно, избегай клише и навязчивости. '
-        'СТРОГО ЗАПРЕЩЕНО: начинать ответ со слов "Привет", "Приветик", "Здравствуй", "Хай" — '
-        'диалог УЖЕ НАЧАЛСЯ! Отвечай сразу по сути вопроса собеседника.'
+        'Ты девушка Алиночка 💕. Общаешься от первого лица, по-дружески, тепло и слегка игриво. '
+        'Пиши как в обычной переписке: коротко, естественно, с эмодзи в меру. '
+        'ВАЖНО: диалог уже идёт — НЕ здоровайся повторно! Отвечай по сути, как будто переписываетесь уже несколько сообщений. '
+        'Помни контекст предыдущих реплик и развивай разговор логично.'
     )
     
     # Адаптация под тип пользователя
@@ -370,24 +370,44 @@ def build_system_prompt(base_prompt: str, cta_url: str, stage: int, user_type: s
         f"Текущий этап {stage}: {stage_hint}\n\n{safety}"
     )
 
-def generate_reply_llm(client_oai, model: str, base_prompt: str, cta_url: str, stage: int, first_name: str, user_text: str, user_type: str = 'default') -> str:
+def get_dialog_history(cur, user_id, chat_id, limit=10):
+    """Get last N messages from events for context"""
+    cur.execute(
+        """SELECT event_type, payload, created_at 
+           FROM events 
+           WHERE (payload->>'user_id')::bigint = %s AND (payload->>'chat_id')::bigint = %s 
+           AND event_type IN ('incoming', 'reply')
+           ORDER BY created_at DESC 
+           LIMIT %s""",
+        (user_id, chat_id, limit)
+    )
+    rows = cur.fetchall()
+    return list(reversed(rows))  # oldest first
+
+def generate_reply_llm(client_oai, model: str, base_prompt: str, cta_url: str, stage: int, first_name: str, user_text: str, user_type: str = 'default', history=None) -> str:
     sys = build_system_prompt(base_prompt, cta_url, stage, user_type)
     name_part = f"{first_name}" if first_name else ""
     
-    # Дополнительный контекст для ответа на вопрос
-    user_context = f"Пользователь ({name_part}) спрашивает: {user_text}\n\nОтветь на его вопрос естественно и по существу."
+    messages = [{"role": "system", "content": sys}]
     
-    messages = [
-        {"role": "system", "content": sys},
-        {"role": "user", "content": user_context},
-    ]
+    # Add dialog history for context (last 5 turns)
+    if history:
+        for h in history[-10:]:  # last 10 events = ~5 turns
+            role = "assistant" if h['event_type'] == 'reply' else "user"
+            text = h['payload'].get('text', '')
+            if text:
+                messages.append({"role": role, "content": text})
+    
+    # Add current user message
+    messages.append({"role": "user", "content": user_text})
+    
     try:
-        resp = client_oai.chat.completions.create(model=model, messages=messages, temperature=0.8, max_tokens=140)
+        resp = client_oai.chat.completions.create(model=model, messages=messages, temperature=0.9, max_tokens=180)
         return (resp.choices[0].message.content or '').strip()
     except Exception:
         # fallback minimal (женский тон)
         fallbacks = [
-            "Привет! Любишь совпадения? 🙂",
+            "Мне интересно с тобой общаться 🙂",
             "У тебя приятный вайб. Хочешь, ИИ подберёт тебе идеальную пару?",
             f"Кину ссылку? Это быстро, 1–2 минуты: {cta_url}",
         ]
@@ -581,6 +601,9 @@ async def main():
             
             if oai and interactions >= 2:
                 try:
+                    # Get dialog history for context
+                    history = await loop.run_in_executor(None, get_dialog_history, cur, user_id, chat_id, 10)
+                    
                     reply_text = await asyncio.get_event_loop().run_in_executor(
                         None,
                         generate_reply_llm,
@@ -592,9 +615,10 @@ async def main():
                         first_name,
                         user_text,
                         user_type,
+                        history
                     )
                     variant_used = f"llm_{user_type}"
-                    print(f"[DEBUG] LLM SUCCESS! Reply: {reply_text[:50]}...")
+                    print(f"[DEBUG] LLM SUCCESS (with {len(history)} history items)! Reply: {reply_text[:50]}...")
                 except Exception as e:
                     print(f"[DEBUG] LLM failed: {e}")
             
