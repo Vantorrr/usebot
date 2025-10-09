@@ -102,6 +102,10 @@ def ensure_proactive_tables(cur):
     """
     cur.execute(sql)
 
+def db_exec(loop, fn, *args):
+    """Helper to run blocking DB function in thread pool synchronously from async code."""
+    return loop.run_in_executor(None, fn, *args)
+
 
 def get_prompt(cur):
     cur.execute("SELECT value FROM settings WHERE key = %s", ('prompt',))
@@ -470,16 +474,17 @@ async def main():
                 print('[DEBUG] Outside schedule')
                 return
 
-            # Get or create user profile
+            # Get or create user profile (run DB calls in thread pool)
             first_name = getattr(sender, 'first_name', '') or ''
-            profile = await get_user_profile(cur, user_id, first_name)
-            stage = await get_dialog_step(cur, user_id, chat_id)
+            loop = asyncio.get_event_loop()
+            profile = await loop.run_in_executor(None, get_user_profile, cur, user_id, first_name)
+            stage = await loop.run_in_executor(None, get_dialog_step, cur, user_id, chat_id)
             user_text = text
             
             # Detect user type and update profile
-            detected_type = await detect_user_type(user_text)
+            detected_type = detect_user_type(user_text)
             if detected_type != 'default':
-                await update_user_profile(cur, user_id, user_type=detected_type)
+                await loop.run_in_executor(None, update_user_profile, cur, user_id, user_type=detected_type)
                 profile['user_type'] = detected_type
             
             user_type = profile.get('user_type', 'default')
@@ -494,19 +499,20 @@ async def main():
             
             if not reply_text:
                 # Use A/B template
-                template, variant_used = await get_ab_template(cur, min(stage, 3), user_type)
+                template, variant_used = await loop.run_in_executor(None, get_ab_template, cur, min(stage, 3), user_type)
                 if template:
                     reply_text = template.replace('{first_name}', first_name).replace('{cta_url}', cta_url)
                 else:
                     # Final fallback
-                    fallback_template = await get_step_message(cur, scenario_id, min(stage, 3))
+                    fallback_template = await loop.run_in_executor(None, get_step_message, cur, scenario_id, min(stage, 3))
                     if fallback_template:
                         reply_text = fallback_template.replace('{first_name}', first_name).replace('{cta_url}', cta_url)
                         variant_used = 'fallback'
                     else:
                         return
 
-            await asyncio.sleep(random.randint(MIN_PAUSE, MAX_PAUSE))
+            # Short human-like delay for DMs (1–3s), не путать с глобальными интервалами рассылки
+            await asyncio.sleep(random.uniform(1.0, 3.0))
             # typing imitation
             async with client.action(event.chat_id, 'typing'):
                 await asyncio.sleep(typing_delay_by_text(reply_text))
@@ -522,8 +528,8 @@ async def main():
                 await asyncio.get_event_loop().run_in_executor(None, track_conversion, cur, user_id, chat_id, 'cta_sent', stage, variant_used)
             
             # Update interaction count and advance stage
-            await asyncio.get_event_loop().run_in_executor(None, update_user_profile, cur, user_id, interaction_count=profile.get('interaction_count', 0) + 1)
-            await asyncio.get_event_loop().run_in_executor(None, inc_dialog_step, cur, user_id, chat_id, scenario_id)
+            await loop.run_in_executor(None, update_user_profile, cur, user_id, interaction_count=profile.get('interaction_count', 0) + 1)
+            await loop.run_in_executor(None, inc_dialog_step, cur, user_id, chat_id, scenario_id)
         except Exception as e:
             await asyncio.get_event_loop().run_in_executor(None, log_event, cur, 'error', {'error': str(e)})
 
