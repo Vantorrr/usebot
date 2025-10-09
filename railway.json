@@ -4,7 +4,7 @@
     "builder": "NIXPACKS"
   },
   "deploy": {
-    "startCommand": "bash -lc 'cd server && npm ci && node src/index.js'",
+    "startCommand": "sh -lc 'cd server && npm ci && node src/index.js'",
     "healthcheckPath": "/api/health"
   }
 }
