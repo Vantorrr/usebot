@@ -66,6 +66,43 @@ def db_conn():
         )
 
 
+def ensure_proactive_tables(cur):
+    """Create missing tables used by proactive logic (idempotent)."""
+    sql = """
+    CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
+
+    CREATE TABLE IF NOT EXISTS daily_stats (
+      date DATE PRIMARY KEY DEFAULT CURRENT_DATE,
+      dms_sent INT DEFAULT 0,
+      posts_made INT DEFAULT 0,
+      users_found INT DEFAULT 0
+    );
+
+    CREATE TABLE IF NOT EXISTS target_users (
+      id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+      user_id BIGINT NOT NULL,
+      username TEXT,
+      first_name TEXT,
+      found_in_chat TEXT,
+      keyword_matched TEXT,
+      contacted_at TIMESTAMPTZ,
+      status TEXT DEFAULT 'found',
+      created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+      UNIQUE(user_id)
+    );
+
+    CREATE TABLE IF NOT EXISTS auto_posts (
+      id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+      template TEXT NOT NULL,
+      category TEXT DEFAULT 'general',
+      weight INT DEFAULT 1,
+      last_used TIMESTAMPTZ,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+    );
+    """
+    cur.execute(sql)
+
+
 def get_prompt(cur):
     cur.execute("SELECT value FROM settings WHERE key = %s", ('prompt',))
     row = cur.fetchone()
@@ -342,6 +379,9 @@ async def main():
         conn.autocommit = True
         cur = conn.cursor()
         print('✅ Database connection established')
+        # Ensure required tables exist (userbot side)
+        ensure_proactive_tables(cur)
+        print('✅ Proactive tables ensured')
     except Exception as e:
         print(f'❌ Database connection failed: {e}')
         return
