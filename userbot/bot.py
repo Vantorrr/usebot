@@ -102,6 +102,45 @@ def ensure_proactive_tables(cur):
     """
     cur.execute(sql)
 
+def ensure_seeds(cur):
+    """Seed minimal data: default scenario with step 0 and A/B templates."""
+    # Default scenario if none exists
+    cur.execute("SELECT id FROM scenarios WHERE is_active = TRUE ORDER BY created_at DESC LIMIT 1")
+    row = cur.fetchone()
+    if not row:
+        cur.execute("INSERT INTO scenarios (name, is_active) VALUES (%s, TRUE) RETURNING id", ("Default Funnel",))
+        scenario_id = cur.fetchone()["id"]
+    else:
+        scenario_id = row["id"]
+
+    # Ensure step 0 exists
+    cur.execute("SELECT 1 FROM scenario_steps WHERE scenario_id = %s AND step_order = 0", (scenario_id,))
+    if not cur.fetchone():
+        cur.execute(
+            "INSERT INTO scenario_steps (scenario_id, step_order, trigger, message_template) VALUES (%s, 0, %s, %s)",
+            (scenario_id, 'start', 'Привет, {first_name}! Любишь совпадения? 🙂')
+        )
+
+    # Seed A/B templates if empty
+    cur.execute("SELECT COUNT(*) AS c FROM message_templates")
+    c = cur.fetchone()["c"] if isinstance(cur.fetchone, dict) else c
+    # The above line may not work; safer to requery and handle dict
+    cur.execute("SELECT COUNT(*) AS c FROM message_templates")
+    row2 = cur.fetchone()
+    count = row2["c"] if isinstance(row2, dict) else list(row2.values())[0] if hasattr(row2, 'values') else row2[0]
+    if count == 0:
+        templates = [
+            (0, 'curious', 'Привет, {first_name}! Любишь совпадения? 🙂', 'default', 3),
+            (1, 'compliment', 'У тебя приятный вайб! Что ищешь в отношениях? 💭', 'default', 3),
+            (2, 'ai_power', 'Я работаю с ИИ, который подбирает 100% совместимость 💫', 'default', 3),
+            (3, 'soft', 'Хочешь проверим? Это 1–2 минуты: {cta_url} 💫', 'default', 3),
+        ]
+        for t in templates:
+            cur.execute(
+                "INSERT INTO message_templates (stage, variant_name, template, user_type, weight) VALUES (%s, %s, %s, %s, %s)",
+                t
+            )
+
 def db_exec(loop, fn, *args):
     """Helper to run blocking DB function in thread pool synchronously from async code."""
     return loop.run_in_executor(None, fn, *args)
@@ -385,6 +424,7 @@ async def main():
         print('✅ Database connection established')
         # Ensure required tables exist (userbot side)
         ensure_proactive_tables(cur)
+        ensure_seeds(cur)
         print('✅ Proactive tables ensured')
     except Exception as e:
         print(f'❌ Database connection failed: {e}')
