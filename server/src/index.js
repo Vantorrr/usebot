@@ -438,12 +438,8 @@ async function startServer() {
   app.listen(port, () => {
     console.log(`Server listening on port ${port}`);
     
-    // Start user-bot as child process
-    if (process.env.TELEGRAM_API_ID && process.env.TELEGRAM_API_HASH) {
-      startUserbot();
-    } else {
-      console.log('User-bot disabled: missing TELEGRAM_API_ID/TELEGRAM_API_HASH');
-    }
+    // User-bot runs as separate Railway service
+    console.log('User-bot should run as separate Railway service');
   });
 }
 
