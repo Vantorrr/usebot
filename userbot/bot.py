@@ -277,7 +277,7 @@ def build_system_prompt(base_prompt: str, cta_url: str, stage: int, user_type: s
         f"Текущий этап: {stage+1}. {safety}"
     )
 
-def generate_reply_llm(client_oai: OpenAI, model: str, base_prompt: str, cta_url: str, stage: int, first_name: str, user_text: str, user_type: str = 'default') -> str:
+def generate_reply_llm(client_oai, model: str, base_prompt: str, cta_url: str, stage: int, first_name: str, user_text: str, user_type: str = 'default') -> str:
     sys = build_system_prompt(base_prompt, cta_url, stage, user_type)
     name_part = f"{first_name}" if first_name else ""
     messages = [
