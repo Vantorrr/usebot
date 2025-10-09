@@ -128,10 +128,13 @@ app.get('/', (_req, res) => {
 // Settings: prompt
 app.get('/api/settings/prompt', async (_req, res) => {
   try {
+    if (!db) {
+      return res.json({ prompt: 'Пиши от лица девушки: тёплый, игривый тон. База данных не подключена.' });
+    }
     const { rows } = await db.query('SELECT value FROM settings WHERE key = $1', ['prompt']);
     res.json({ prompt: rows[0]?.value ?? '' });
   } catch (e) {
-    res.status(500).json({ error: 'failed_to_get_prompt' });
+    res.json({ prompt: 'Ошибка БД: ' + e.message });
   }
 });
 
