@@ -164,7 +164,7 @@ async def track_conversion(cur, user_id, chat_id, conversion_type, stage, varian
         (user_id, chat_id, conversion_type, stage, variant_used)
     )
 
-async def get_daily_stats(cur):
+def get_daily_stats(cur):
     cur.execute("SELECT * FROM daily_stats WHERE date = CURRENT_DATE")
     row = cur.fetchone()
     if not row:
@@ -172,17 +172,17 @@ async def get_daily_stats(cur):
         row = cur.fetchone()
     return dict(row)
 
-async def update_daily_stats(cur, field, increment=1):
+def update_daily_stats(cur, field, increment=1):
     cur.execute(f"UPDATE daily_stats SET {field} = {field} + %s WHERE date = CURRENT_DATE", (increment,))
 
-async def find_target_user(cur, user_id, username, first_name, chat_title, keyword):
+def find_target_user(cur, user_id, username, first_name, chat_title, keyword):
     cur.execute(
         """INSERT INTO target_users (user_id, username, first_name, found_in_chat, keyword_matched) 
            VALUES (%s, %s, %s, %s, %s) ON CONFLICT (user_id) DO NOTHING""",
         (user_id, username, first_name, chat_title, keyword)
     )
 
-async def get_auto_post_template(cur):
+def get_auto_post_template(cur):
     cur.execute(
         """SELECT template FROM auto_posts 
            WHERE last_used IS NULL OR last_used < NOW() - INTERVAL '24 hours'
@@ -194,7 +194,7 @@ async def get_auto_post_template(cur):
         return row['template']
     return None
 
-async def should_contact_user(cur, user_id, dm_limit):
+def should_contact_user(cur, user_id, dm_limit):
     # Check if already contacted
     cur.execute("SELECT status FROM target_users WHERE user_id = %s", (user_id,))
     row = cur.fetchone()
@@ -202,7 +202,7 @@ async def should_contact_user(cur, user_id, dm_limit):
         return False
     
     # Check daily limit
-    stats = await get_daily_stats(cur)
+    stats = get_daily_stats(cur)
     return stats['dms_sent'] < dm_limit
 
 def contains_keywords(text, keywords):
@@ -227,7 +227,7 @@ async def inc_dialog_step(cur, user_id, chat_id, scenario_id):
     return row['step_order'] if row else 0
 
 
-async def log_event(cur, event_type, payload):
+def log_event(cur, event_type, payload):
     cur.execute(
         "INSERT INTO events (event_type, payload) VALUES (%s, %s)",
         (event_type, psycopg2.extras.Json(payload))
@@ -339,7 +339,7 @@ async def main():
     cta_url = await get_cta(cur)
     
     # Get settings from database
-    targets, keywords, dm_limit, posts_limit = await get_settings(cur)
+    targets, keywords, dm_limit, posts_limit = await asyncio.get_event_loop().run_in_executor(None, get_settings, cur)
     print(f'Settings loaded: {len(targets)} chats, {len(keywords)} keywords, {dm_limit} DMs/day, {posts_limit} posts/day')
 
     @client.on(events.NewMessage(incoming=True))
@@ -476,7 +476,7 @@ async def main():
         while True:
             try:
                 # Refresh settings every loop
-                current_targets, current_keywords, current_dm_limit, current_posts_limit = await get_settings(cur)
+                current_targets, current_keywords, current_dm_limit, current_posts_limit = await asyncio.get_event_loop().run_in_executor(None, get_settings, cur)
                 
                 if not current_targets:
                     await asyncio.sleep(300)  # Wait 5 min if no targets
