@@ -46,7 +46,6 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
-    profiles: ["userbot"]
     environment:
       POSTGRES_HOST: postgres
       POSTGRES_PORT: 5432

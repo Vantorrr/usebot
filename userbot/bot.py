@@ -28,12 +28,21 @@ MAX_PAUSE = int(os.getenv('MAX_PAUSE_SEC') or 120)
 LLM_MODEL = os.getenv('LLM_MODEL') or 'gpt-4o-mini'
 OPENAI_API_KEY = os.getenv('OPENAI_API_KEY')
 
-TARGETS = [t.strip() for t in (os.getenv('TARGET_CHAT_IDS') or '').split(',') if t.strip()]
-
-# Proactive bot settings
-KEYWORDS = ['знакомства', 'отношения', 'пара', 'любовь', 'встречи', 'девушка', 'парень', 'одиночество', 'свидание']
-DAILY_DM_LIMIT = 7
-CHAT_POSTS_PER_DAY = 3
+async def get_settings(cur):
+    """Get settings from database"""
+    settings = {}
+    cur.execute("SELECT key, value FROM settings WHERE key IN ('target_chats', 'keywords', 'daily_dm_limit', 'chat_posts_per_day')")
+    rows = cur.fetchall()
+    for row in rows:
+        settings[row['key']] = row['value']
+    
+    # Parse settings
+    targets = [t.strip() for t in (settings.get('target_chats', '') or '').split(',') if t.strip()]
+    keywords = [k.strip() for k in (settings.get('keywords', 'знакомства,отношения,пара,любовь') or '').split(',') if k.strip()]
+    dm_limit = int(settings.get('daily_dm_limit', '7'))
+    posts_limit = int(settings.get('chat_posts_per_day', '3'))
+    
+    return targets, keywords, dm_limit, posts_limit
 
 def db_conn():
     return psycopg2.connect(cursor_factory=psycopg2.extras.RealDictCursor, **DB)
@@ -167,7 +176,7 @@ async def get_auto_post_template(cur):
         return row['template']
     return None
 
-async def should_contact_user(cur, user_id):
+async def should_contact_user(cur, user_id, dm_limit):
     # Check if already contacted
     cur.execute("SELECT status FROM target_users WHERE user_id = %s", (user_id,))
     row = cur.fetchone()
@@ -176,7 +185,7 @@ async def should_contact_user(cur, user_id):
     
     # Check daily limit
     stats = await get_daily_stats(cur)
-    return stats['dms_sent'] < DAILY_DM_LIMIT
+    return stats['dms_sent'] < dm_limit
 
 def contains_keywords(text, keywords):
     text_lower = text.lower()
@@ -303,6 +312,10 @@ async def main():
         print('No active scenario; idle.')
     base_prompt = await get_prompt(cur)
     cta_url = await get_cta(cur)
+    
+    # Get settings from database
+    targets, keywords, dm_limit, posts_limit = await get_settings(cur)
+    print(f'Settings loaded: {len(targets)} chats, {len(keywords)} keywords, {dm_limit} DMs/day, {posts_limit} posts/day')
 
     @client.on(events.NewMessage(incoming=True))
     async def handle_message(event):
@@ -325,7 +338,7 @@ async def main():
 
             # Check for keywords in group chats (proactive search)
             if hasattr(chat, 'title') and chat.title:  # Group chat
-                keyword = contains_keywords(text, KEYWORDS)
+                keyword = contains_keywords(text, keywords)
                 if keyword and user_id:
                     username = getattr(sender, 'username', '')
                     first_name = getattr(sender, 'first_name', '') or ''
@@ -337,7 +350,7 @@ async def main():
                     await asyncio.get_event_loop().run_in_executor(None, update_daily_stats, cur, 'users_found')
                     
                     # Try to contact if within limits
-                    if await asyncio.get_event_loop().run_in_executor(None, should_contact_user, cur, user_id):
+                    if await asyncio.get_event_loop().run_in_executor(None, should_contact_user, cur, user_id, dm_limit):
                         await asyncio.sleep(random.randint(60, 300))  # Wait 1-5 minutes
                         try:
                             # Send first message from scenario
@@ -435,17 +448,22 @@ async def main():
             await asyncio.get_event_loop().run_in_executor(None, log_event, cur, 'error', {'error': str(e)})
 
     async def scheduler_loop():
-        if not TARGETS:
-            return
         while True:
             try:
+                # Refresh settings every loop
+                current_targets, current_keywords, current_dm_limit, current_posts_limit = await get_settings(cur)
+                
+                if not current_targets:
+                    await asyncio.sleep(300)  # Wait 5 min if no targets
+                    continue
+                    
                 stats = await asyncio.get_event_loop().run_in_executor(None, get_daily_stats, cur)
                 
                 # Auto-posting to chats (proactive engagement)
-                if stats['posts_made'] < CHAT_POSTS_PER_DAY and within_schedule(cur, scenario_id):
+                if stats['posts_made'] < current_posts_limit and within_schedule(cur, scenario_id):
                     auto_post = await asyncio.get_event_loop().run_in_executor(None, get_auto_post_template, cur)
-                    if auto_post and TARGETS:
-                        target = random.choice(TARGETS)
+                    if auto_post:
+                        target = random.choice(current_targets)
                         try:
                             async with client.action(target, 'typing'):
                                 await asyncio.sleep(typing_delay_by_text(auto_post))
@@ -465,7 +483,7 @@ async def main():
                     template = await get_step_message(cur, scenario_id, 0)
                     if template:
                         msg = template.replace('{cta_url}', cta_url)
-                        target = random.choice(TARGETS)
+                        target = random.choice(current_targets)
                         try:
                             async with client.action(target, 'typing'):
                                 await asyncio.sleep(typing_delay_by_text(msg))
