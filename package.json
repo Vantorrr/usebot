@@ -1,0 +1,13 @@
+{
+  "name": "usebot",
+  "version": "1.0.0",
+  "description": "Dating AI bot with sales funnel",
+  "main": "server/src/index.js",
+  "scripts": {
+    "start": "cd server && npm install && npm start",
+    "dev": "cd server && npm run dev"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}
