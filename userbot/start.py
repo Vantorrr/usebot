@@ -5,10 +5,11 @@ print("Current directory:", __import__('os').getcwd())
 print("Files in directory:", __import__('os').listdir('.'))
 
 try:
-    import bot
-    print("✅ bot.py imported successfully")
+    print("🚀 Starting main bot...")
+    import asyncio
+    from bot import main
+    asyncio.run(main())
 except Exception as e:
-    print(f"❌ Failed to import bot.py: {e}")
-
-print("🚀 Starting main bot...")
-import bot
+    print(f"❌ Fatal error: {e}")
+    import traceback
+    traceback.print_exc()
