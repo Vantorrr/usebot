@@ -123,11 +123,8 @@ def ensure_seeds(cur):
 
     # Seed A/B templates if empty
     cur.execute("SELECT COUNT(*) AS c FROM message_templates")
-    c = cur.fetchone()["c"] if isinstance(cur.fetchone, dict) else c
-    # The above line may not work; safer to requery and handle dict
-    cur.execute("SELECT COUNT(*) AS c FROM message_templates")
     row2 = cur.fetchone()
-    count = row2["c"] if isinstance(row2, dict) else list(row2.values())[0] if hasattr(row2, 'values') else row2[0]
+    count = row2["c"] if isinstance(row2, dict) else row2[0]
     if count == 0:
         templates = [
             (0, 'curious', 'Привет, {first_name}! Любишь совпадения? 🙂', 'default', 3),
