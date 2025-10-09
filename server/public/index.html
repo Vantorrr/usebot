@@ -7,17 +7,223 @@
   <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
   <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
   <style>
-    body { font-family: system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif; margin: 24px; }
-    .card { border: 1px solid #e5e7eb; border-radius: 8px; padding: 16px; margin-bottom: 16px; }
-    input, textarea, button { font-size: 14px; }
-    textarea { width: 100%; min-height: 120px; }
-    table { border-collapse: collapse; width: 100%; }
-    th, td { border: 1px solid #e5e7eb; padding: 8px; text-align: left; }
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    
+    body { 
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      min-height: 100vh;
+      padding: 20px;
+      color: #333;
+    }
+    
+    .container {
+      max-width: 1200px;
+      margin: 0 auto;
+    }
+    
+    .header {
+      text-align: center;
+      margin-bottom: 40px;
+    }
+    
+    .header h1 {
+      color: white;
+      font-size: 2.5rem;
+      font-weight: 700;
+      text-shadow: 0 2px 4px rgba(0,0,0,0.3);
+      margin-bottom: 8px;
+    }
+    
+    .header p {
+      color: rgba(255,255,255,0.9);
+      font-size: 1.1rem;
+    }
+    
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
+      gap: 24px;
+      margin-bottom: 32px;
+    }
+    
+    .card {
+      background: white;
+      border-radius: 16px;
+      padding: 24px;
+      box-shadow: 0 8px 32px rgba(0,0,0,0.1);
+      backdrop-filter: blur(10px);
+      border: 1px solid rgba(255,255,255,0.2);
+      transition: transform 0.2s ease, box-shadow 0.2s ease;
+    }
+    
+    .card:hover {
+      transform: translateY(-4px);
+      box-shadow: 0 12px 48px rgba(0,0,0,0.15);
+    }
+    
+    .card h2 {
+      color: #2d3748;
+      font-size: 1.5rem;
+      font-weight: 600;
+      margin-bottom: 16px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    
+    .card h3 {
+      color: #4a5568;
+      font-size: 1.1rem;
+      font-weight: 600;
+      margin: 16px 0 8px 0;
+    }
+    
+    .icon {
+      width: 24px;
+      height: 24px;
+      opacity: 0.8;
+    }
+    
+    input, textarea {
+      width: 100%;
+      padding: 12px 16px;
+      border: 2px solid #e2e8f0;
+      border-radius: 8px;
+      font-size: 14px;
+      transition: border-color 0.2s ease, box-shadow 0.2s ease;
+      background: #f8fafc;
+    }
+    
+    input:focus, textarea:focus {
+      outline: none;
+      border-color: #667eea;
+      box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+      background: white;
+    }
+    
+    textarea {
+      min-height: 120px;
+      resize: vertical;
+      font-family: inherit;
+    }
+    
+    button {
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
+      border: none;
+      padding: 12px 24px;
+      border-radius: 8px;
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      margin-top: 12px;
+    }
+    
+    button:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+    }
+    
+    button:active {
+      transform: translateY(0);
+    }
+    
+    .stats-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 16px;
+      margin-bottom: 16px;
+    }
+    
+    .stat-item {
+      background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+      color: white;
+      padding: 16px;
+      border-radius: 12px;
+      text-align: center;
+    }
+    
+    .stat-number {
+      font-size: 2rem;
+      font-weight: 700;
+      margin-bottom: 4px;
+    }
+    
+    .stat-label {
+      font-size: 0.9rem;
+      opacity: 0.9;
+    }
+    
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 16px;
+    }
+    
+    th, td {
+      padding: 12px;
+      text-align: left;
+      border-bottom: 1px solid #e2e8f0;
+    }
+    
+    th {
+      background: #f8fafc;
+      font-weight: 600;
+      color: #4a5568;
+    }
+    
+    .form-row {
+      display: flex;
+      gap: 12px;
+      align-items: end;
+      margin-bottom: 16px;
+    }
+    
+    .form-row input {
+      margin-top: 0;
+    }
+    
+    .form-row button {
+      margin-top: 0;
+      white-space: nowrap;
+    }
+    
+    .empty-state {
+      text-align: center;
+      color: #718096;
+      font-style: italic;
+      padding: 32px;
+    }
+    
+    @media (max-width: 768px) {
+      .grid {
+        grid-template-columns: 1fr;
+      }
+      
+      .header h1 {
+        font-size: 2rem;
+      }
+      
+      .form-row {
+        flex-direction: column;
+      }
+      
+      .stats-grid {
+        grid-template-columns: repeat(2, 1fr);
+      }
+    }
   </style>
 </head>
 <body>
-  <h1>USEbot Admin</h1>
-  <div id="root"></div>
+  <div class="container">
+    <div class="header">
+      <h1>🤖 USEbot Admin</h1>
+      <p>Управление продающим ботом от девушки</p>
+    </div>
+    <div id="root"></div>
+  </div>
   <script>
     const e = React.createElement;
 
@@ -35,14 +241,12 @@
       React.useEffect(() => { if (data && data.prompt !== undefined) setValue(data.prompt); }, [data]);
       const save = async () => {
         await fetch('/api/settings/prompt', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ prompt: value })});
-        alert('Сохранено');
+        alert('✅ Промт сохранён!');
       };
       return e('div', { className: 'card' }, [
-        e('h2', { key: 'h2' }, 'Промт'),
-        e('textarea', { key: 'ta', value, onChange: e => setValue(e.target.value) }),
-        e('div', { key: 'buttons' }, [
-          e('button', { onClick: save }, 'Сохранить')
-        ])
+        e('h2', { key: 'h2' }, ['🧠 Промт для LLM']),
+        e('textarea', { key: 'ta', value, onChange: e => setValue(e.target.value), placeholder: 'Введите системный промт для бота...' }),
+        e('button', { key: 'btn', onClick: save }, '💾 Сохранить промт')
       ]);
     }
 
@@ -54,15 +258,17 @@
         if (r.ok) { setName(''); fetch('/api/scenarios').then(r => r.json()).then(setList); }
       };
       return e('div', { className: 'card' }, [
-        e('h2', { key: 'h2' }, 'Сценарии'),
-        e('div', { key: 'form' }, [
-          e('input', { placeholder: 'Название', value: name, onChange: e => setName(e.target.value) }),
-          e('button', { onClick: create, style: { marginLeft: 8 } }, 'Создать')
+        e('h2', { key: 'h2' }, ['📝 Сценарии воронки']),
+        e('div', { key: 'form', className: 'form-row' }, [
+          e('input', { placeholder: 'Название нового сценария', value: name, onChange: e => setName(e.target.value) }),
+          e('button', { onClick: create }, '➕ Создать')
         ]),
-        e('table', { key: 'table' }, [
-          e('thead', {}, e('tr', {}, [e('th', {}, 'ID'), e('th', {}, 'Название'), e('th', {}, 'Активен')])),
-          e('tbody', {}, (list || []).map(s => e('tr', { key: s.id }, [e('td', {}, s.id), e('td', {}, s.name), e('td', {}, String(s.is_active))])))
-        ])
+        (list && list.length > 0) ? 
+          e('table', { key: 'table' }, [
+            e('thead', {}, e('tr', {}, [e('th', {}, 'Название'), e('th', {}, 'Статус')])),
+            e('tbody', {}, list.map(s => e('tr', { key: s.id }, [e('td', {}, s.name), e('td', {}, s.is_active ? '✅ Активен' : '❌ Неактивен')])))
+          ]) :
+          e('div', { key: 'empty', className: 'empty-state' }, '📋 Пока нет сценариев')
       ]);
     }
 
@@ -72,33 +278,50 @@
       React.useEffect(() => { if (data && data.cta !== undefined) setValue(data.cta); }, [data]);
       const save = async () => {
         await fetch('/api/settings/cta', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ cta: value })});
-        alert('Сохранено');
+        alert('🔗 CTA ссылка сохранена!');
       };
       return e('div', { className: 'card' }, [
-        e('h2', { key: 'h2' }, 'CTA ссылка'),
-        e('input', { key: 'inp', style: { width: '100%' }, value, onChange: e => setValue(e.target.value) }),
-        e('div', { key: 'buttons' }, [ e('button', { onClick: save }, 'Сохранить') ])
+        e('h2', { key: 'h2' }, ['🎯 CTA ссылка']),
+        e('input', { key: 'inp', value, onChange: e => setValue(e.target.value), placeholder: 'https://networkassistant.ai/register?invite_code=...' }),
+        e('button', { key: 'btn', onClick: save }, '🔗 Сохранить ссылку')
       ]);
     }
 
     function Stats() {
       const [stats] = useFetch('/api/stats', []);
-      if (!stats) return e('div', { className: 'card' }, [e('h2', {}, 'Статистика'), e('div', {}, 'Загрузка...')]);
+      if (!stats) return e('div', { className: 'card' }, [e('h2', {}, '📊 Аналитика'), e('div', {}, '⏳ Загрузка...')]);
       
       return e('div', { className: 'card' }, [
-        e('h2', { key: 'h2' }, 'Аналитика'),
-        e('div', { key: 'basic' }, `Диалогов: ${stats.dialogs} | Событий: ${stats.events} | Конверсий: ${stats.conversions}`),
-        e('h3', { key: 'h3' }, 'Конверсии по этапам'),
-        e('div', { key: 'stages' }, (stats.conversionsByStage || []).map(s => `Этап ${s.stage}: ${s.count}`).join(' | ') || 'Нет данных'),
-        e('h3', { key: 'h4' }, 'Типы пользователей'),
-        e('div', { key: 'types' }, (stats.userTypes || []).map(t => `${t.user_type}: ${t.count}`).join(' | ') || 'Нет данных'),
-        e('h3', { key: 'h5' }, 'A/B тесты (топ варианты)'),
-        e('div', { key: 'ab' }, (stats.abPerformance || []).slice(0, 5).map(ab => `${ab.variant} (${ab.user_type}): ${ab.conversions}/${ab.sent}`).join(' | ') || 'Нет данных')
+        e('h2', { key: 'h2' }, ['📊 Аналитика']),
+        e('div', { key: 'stats-grid', className: 'stats-grid' }, [
+          e('div', { key: 'dialogs', className: 'stat-item' }, [
+            e('div', { className: 'stat-number' }, stats.dialogs || 0),
+            e('div', { className: 'stat-label' }, 'Диалогов')
+          ]),
+          e('div', { key: 'events', className: 'stat-item' }, [
+            e('div', { className: 'stat-number' }, stats.events || 0),
+            e('div', { className: 'stat-label' }, 'Событий')
+          ]),
+          e('div', { key: 'conversions', className: 'stat-item' }, [
+            e('div', { className: 'stat-number' }, stats.conversions || 0),
+            e('div', { className: 'stat-label' }, 'Конверсий')
+          ])
+        ]),
+        e('h3', { key: 'h3' }, '🎯 Конверсии по этапам'),
+        e('div', { key: 'stages' }, (stats.conversionsByStage || []).length > 0 ? 
+          (stats.conversionsByStage || []).map(s => `Этап ${s.stage}: ${s.count}`).join(' • ') : 
+          '📈 Данных пока нет'
+        ),
+        e('h3', { key: 'h4' }, '👥 Типы пользователей'),
+        e('div', { key: 'types' }, (stats.userTypes || []).length > 0 ? 
+          (stats.userTypes || []).map(t => `${t.user_type}: ${t.count}`).join(' • ') : 
+          '🎭 Данных пока нет'
+        )
       ]);
     }
 
     function App() {
-      return e(React.Fragment, null, [
+      return e('div', { className: 'grid' }, [
         e(PromptCard, { key: 'p' }),
         e(CtaCard, { key: 'c' }),
         e(Scenarios, { key: 's' }),
