@@ -7,7 +7,7 @@ from telethon.sessions import StringSession
 import psycopg2
 import psycopg2.extras
 from dotenv import load_dotenv
-from openai import OpenAI
+# from openai import OpenAI  # Disabled for now
 
 load_dotenv()
 
@@ -448,21 +448,9 @@ async def main():
             reply_text = None
             variant_used = None
             
-            if OPENAI_API_KEY:
-                oai = OpenAI(api_key=OPENAI_API_KEY)
-                reply_text = await asyncio.get_event_loop().run_in_executor(
-                    None,
-                    generate_reply_llm,
-                    oai,
-                    LLM_MODEL,
-                    base_prompt,
-                    cta_url,
-                    stage,
-                    first_name,
-                    user_text,
-                    user_type,
-                )
-                variant_used = f'llm_{user_type}'
+            # LLM disabled for now - using A/B templates only
+            reply_text = None
+            variant_used = None
             
             if not reply_text:
                 # Use A/B template
