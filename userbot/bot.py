@@ -596,9 +596,15 @@ async def main():
                 await loop.run_in_executor(None, track_conversion, cur, user_id, chat_id, 'cta_sent', stage, variant_used)
             
             # Update interaction count and advance stage
-            await loop.run_in_executor(None, update_user_profile, cur, user_id, interaction_count=profile.get('interaction_count', 0) + 1)
+            new_count = profile.get('interaction_count', 0) + 1
+            print(f"[DEBUG] Updating interaction_count from {profile.get('interaction_count', 0)} to {new_count}")
+            await loop.run_in_executor(None, update_user_profile, cur, user_id, interaction_count=new_count)
             next_step = await loop.run_in_executor(None, inc_dialog_step, cur, user_id, chat_id, scenario_id)
             print(f"[DEBUG] Advanced to step {next_step}")
+            
+            # Verify update
+            updated = await loop.run_in_executor(None, get_user_profile, cur, user_id, first_name)
+            print(f"[DEBUG] Verified interaction_count: {updated.get('interaction_count', 0)}")
         except Exception as e:
             await asyncio.get_event_loop().run_in_executor(None, log_event, cur, 'error', {'error': str(e)})
 
