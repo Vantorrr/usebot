@@ -453,18 +453,19 @@ async def main():
             chat = await event.get_chat()
             user_id = getattr(sender, 'id', None)
             chat_id = getattr(chat, 'id', None)
-            # Normalize conversation id for private dialogs (use user_id)
-            if getattr(event, 'is_private', False) and user_id is not None:
-                chat_id = user_id
             text = event.raw_text or ''
+            is_private = event.is_private
             
-            print(f'[DEBUG] New message from {user_id} in chat {chat_id}: {text[:50]}...')
+            print(f'[DEBUG] New message from {user_id} in chat {chat_id}, is_private={is_private}: {text[:50]}...')
             
             # Skip own messages
             if sender and hasattr(sender, 'bot') and sender.bot:
                 print('[DEBUG] Skipping bot message')
                 return
-            if sender and sender.id == (await client.get_me()).id:
+            
+            # Get bot's own ID once
+            me = await client.get_me()
+            if sender and sender.id == me.id:
                 print('[DEBUG] Skipping own message')
                 return
 
@@ -509,7 +510,11 @@ async def main():
                 return  # Don't process group messages further
 
             # Handle private messages (existing logic)
-            print(f'[DEBUG] Processing private message from {user_id}')
+            if not is_private:
+                print('[DEBUG] Not a private message, skipping reply')
+                return
+                
+            print(f'[DEBUG] Processing private message from user {user_id}')
             if not scenario_id:
                 print('[DEBUG] No active scenario')
                 return
