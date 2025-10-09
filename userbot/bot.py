@@ -339,8 +339,14 @@ async def main():
     cta_url = await get_cta(cur)
     
     # Get settings from database
-    targets, keywords, dm_limit, posts_limit = await asyncio.get_event_loop().run_in_executor(None, get_settings, cur)
-    print(f'Settings loaded: {len(targets)} chats, {len(keywords)} keywords, {dm_limit} DMs/day, {posts_limit} posts/day')
+    try:
+        targets, keywords, dm_limit, posts_limit = await asyncio.get_event_loop().run_in_executor(None, get_settings, cur)
+        print(f'Settings loaded: {len(targets)} chats, {len(keywords)} keywords, {dm_limit} DMs/day, {posts_limit} posts/day')
+        print(f'Target chats: {targets}')
+        print(f'Keywords: {keywords}')
+    except Exception as e:
+        print(f'Failed to load settings: {e}')
+        targets, keywords, dm_limit, posts_limit = [], [], 7, 3
 
     @client.on(events.NewMessage(incoming=True))
     async def handle_message(event):
@@ -351,10 +357,14 @@ async def main():
             chat_id = getattr(chat, 'id', None)
             text = event.raw_text or ''
             
+            print(f'[DEBUG] New message from {user_id} in chat {chat_id}: {text[:50]}...')
+            
             # Skip own messages
             if sender and hasattr(sender, 'bot') and sender.bot:
+                print('[DEBUG] Skipping bot message')
                 return
             if sender and sender.id == (await client.get_me()).id:
+                print('[DEBUG] Skipping own message')
                 return
 
             await asyncio.get_event_loop().run_in_executor(None, log_event, cur, 'incoming', {
@@ -398,9 +408,12 @@ async def main():
                 return  # Don't process group messages further
 
             # Handle private messages (existing logic)
+            print(f'[DEBUG] Processing private message from {user_id}')
             if not scenario_id:
+                print('[DEBUG] No active scenario')
                 return
             if not within_schedule(cur, scenario_id):
+                print('[DEBUG] Outside schedule')
                 return
 
             # Get or create user profile
