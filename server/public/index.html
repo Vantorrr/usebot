@@ -322,10 +322,27 @@
         await fetch('/api/settings/prompt', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ prompt: value })});
         alert('✅ Промт сохранён!');
       };
-      return e('div', { className: 'card' }, [
+      return e('div', { className: 'card', style: { gridColumn: '1 / -1' } }, [
         e('div', { key: 'content', className: 'card-content' }, [
-          e('h2', { key: 'h2' }, ['🧠 Промт для LLM']),
-          e('textarea', { key: 'ta', value, onChange: e => setValue(e.target.value), placeholder: 'Введите системный промт для бота...', style: { flex: 1 } }),
+          e('h2', { key: 'h2' }, ['🧠 Системный промт для ИИ']),
+          e('textarea', { 
+            key: 'ta', 
+            value, 
+            onChange: e => setValue(e.target.value), 
+            placeholder: 'Введите системный промт для бота (персона, стиль общения, правила)...', 
+            rows: 8,
+            style: { 
+              width: '100%',
+              minHeight: '200px',
+              padding: '12px',
+              fontSize: '14px',
+              lineHeight: '1.6',
+              borderRadius: '8px',
+              border: '1px solid #e2e8f0',
+              fontFamily: 'monospace',
+              resize: 'vertical'
+            } 
+          }),
           e('button', { key: 'btn', onClick: save }, '💾 Сохранить промт')
         ])
       ]);
