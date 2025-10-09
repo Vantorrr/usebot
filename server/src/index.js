@@ -103,6 +103,36 @@ async function initializeDatabase(db) {
         created_at TIMESTAMPTZ NOT NULL DEFAULT now()
       );
 
+      -- Proactive-bot supporting tables (idempotent)
+      CREATE TABLE IF NOT EXISTS daily_stats (
+        date DATE PRIMARY KEY DEFAULT CURRENT_DATE,
+        dms_sent INT DEFAULT 0,
+        posts_made INT DEFAULT 0,
+        users_found INT DEFAULT 0
+      );
+
+      CREATE TABLE IF NOT EXISTS target_users (
+        id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+        user_id BIGINT NOT NULL,
+        username TEXT,
+        first_name TEXT,
+        found_in_chat TEXT,
+        keyword_matched TEXT,
+        contacted_at TIMESTAMPTZ,
+        status TEXT DEFAULT 'found',
+        created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+        UNIQUE(user_id)
+      );
+
+      CREATE TABLE IF NOT EXISTS auto_posts (
+        id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+        template TEXT NOT NULL,
+        category TEXT DEFAULT 'general',
+        weight INT DEFAULT 1,
+        last_used TIMESTAMPTZ,
+        created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+      );
+
       INSERT INTO settings (key, value) VALUES
         ('prompt', 'Пиши от лица девушки: тёплый, игривый, уважительный тон; лёгкий флирт и эмодзи умеренно. Отвечай кратко и по-русски. Веди по воронке (1 — приветствие, 2 — прогрев, 3 — оффер, 4 — мягкий CTA), ссылку не давай до шага 4. Соблюдай деликатность, избегай резкости и спама.'),
         ('cta_url', 'https://networkassistant.ai/register?invite_code=USER-170-07548ff71f720f03')
