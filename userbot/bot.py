@@ -7,7 +7,7 @@ from telethon.sessions import StringSession
 import psycopg2
 import psycopg2.extras
 from dotenv import load_dotenv
-# from openai import OpenAI  # Disabled for now
+from openai import OpenAI
 
 load_dotenv()
 
@@ -290,7 +290,7 @@ def contains_keywords(text, keywords):
     return None
 
 
-async def inc_dialog_step(cur, user_id, chat_id, scenario_id):
+def inc_dialog_step(cur, user_id, chat_id, scenario_id):
     cur.execute(
         """
         INSERT INTO dialog_states (user_id, chat_id, scenario_id, step_order)
@@ -443,6 +443,9 @@ async def main():
         print(f'Failed to load settings: {e}')
         targets, keywords, dm_limit, posts_limit = [], [], 7, 3
 
+    # Prepare LLM client once
+    oai = OpenAI(api_key=OPENAI_API_KEY) if OPENAI_API_KEY else None
+
     @client.on(events.NewMessage(incoming=True))
     async def handle_message(event):
         try:
@@ -526,13 +529,27 @@ async def main():
             
             user_type = profile.get('user_type', 'default')
             
-            # Get A/B template or use LLM
+            # Get LLM response (stages 1-2) or A/B template
             reply_text = None
             variant_used = None
             
-            # LLM disabled for now - using A/B templates only
-            reply_text = None
-            variant_used = None
+            if oai and stage in (1, 2):
+                try:
+                    reply_text = await asyncio.get_event_loop().run_in_executor(
+                        None,
+                        generate_reply_llm,
+                        oai,
+                        LLM_MODEL,
+                        base_prompt,
+                        cta_url,
+                        stage,
+                        first_name,
+                        user_text,
+                        user_type,
+                    )
+                    variant_used = f"llm_{user_type}"
+                except Exception as e:
+                    print(f"[DEBUG] LLM failed: {e}")
             
             if not reply_text:
                 # Use A/B template
@@ -562,11 +579,12 @@ async def main():
             
             # Track potential conversion (CTA stage)
             if stage >= 3 and cta_url in reply_text:
-                await asyncio.get_event_loop().run_in_executor(None, track_conversion, cur, user_id, chat_id, 'cta_sent', stage, variant_used)
+                await loop.run_in_executor(None, track_conversion, cur, user_id, chat_id, 'cta_sent', stage, variant_used)
             
             # Update interaction count and advance stage
             await loop.run_in_executor(None, update_user_profile, cur, user_id, interaction_count=profile.get('interaction_count', 0) + 1)
-            await loop.run_in_executor(None, inc_dialog_step, cur, user_id, chat_id, scenario_id)
+            next_step = await loop.run_in_executor(None, inc_dialog_step, cur, user_id, chat_id, scenario_id)
+            print(f"[DEBUG] Advanced to step {next_step}")
         except Exception as e:
             await asyncio.get_event_loop().run_in_executor(None, log_event, cur, 'error', {'error': str(e)})
 

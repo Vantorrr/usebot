@@ -404,6 +404,7 @@
       const [data, setData] = useFetch('/api/settings/limits', []);
       const [dmLimit, setDmLimit] = React.useState('7');
       const [postsLimit, setPostsLimit] = React.useState('3');
+      const [llmOn, setLlmOn] = React.useState(true);
       React.useEffect(() => { 
         if (data) {
           if (data.daily_dm_limit !== undefined) setDmLimit(data.daily_dm_limit);
@@ -429,6 +430,12 @@
           e('div', { style: { flex: 1 } }, [
             e('label', { style: { display: 'block', marginBottom: '4px', fontSize: '14px', fontWeight: '500' } }, 'Постов в день:'),
             e('input', { type: 'number', value: postsLimit, onChange: e => setPostsLimit(e.target.value), min: '1', max: '10' })
+          ])
+        ]),
+        e('div', { key: 'llm', className: 'form-row' }, [
+          e('div', { style: { display: 'flex', alignItems: 'center', gap: 8 } }, [
+            e('input', { type: 'checkbox', checked: llmOn, onChange: e => setLlmOn(e.target.checked) }),
+            e('span', {}, 'Включить LLM для прогрева (стадии 1–2)')
           ])
         ]),
         e('button', { key: 'btn', onClick: save }, '⚡ Сохранить лимиты')
