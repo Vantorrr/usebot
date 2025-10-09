@@ -546,9 +546,19 @@ async def main():
 
 
 if __name__ == '__main__':
+    print('🚀 USEbot starting...')
+    print(f'API_ID: {API_ID}')
+    print(f'API_HASH: {"*" * 10 if API_HASH else "MISSING"}')
+    print(f'SESSION: {"SET" if SESSION else "MISSING"}')
+    print(f'DATABASE_URL: {"SET" if os.getenv("DATABASE_URL") else "MISSING"}')
+    
     try:
         asyncio.run(main())
     except KeyboardInterrupt:
-        pass
+        print('Bot stopped by user')
+    except Exception as e:
+        print(f'Fatal error: {e}')
+        import traceback
+        traceback.print_exc()
 
 
