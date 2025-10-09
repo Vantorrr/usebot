@@ -1,0 +1,12 @@
+[phases.setup]
+nixPkgs = ["nodejs_18"]
+
+[phases.install]
+cmds = ["cd server && npm ci --cache /tmp/npm-cache"]
+
+[phases.build]
+cmds = ["echo 'No build step'"]
+
+[start]
+cmd = "node server/src/index.js"
+
