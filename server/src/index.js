@@ -401,7 +401,15 @@ app.get('/api/target-users', async (_req, res) => {
 // Stats (enhanced analytics)
 app.get('/api/stats', async (_req, res) => {
   try {
-    const dialogs = await db.query('SELECT COUNT(*)::int AS count FROM dialog_states');
+    // Dialogs: fallback to distinct users seen in events (incoming/reply)
+    const dialogs = await db.query(`
+      SELECT COUNT(*)::int AS count
+      FROM (
+        SELECT DISTINCT (payload->>'user_id')::bigint AS uid
+        FROM events
+        WHERE event_type IN ('incoming','reply')
+      ) t
+    `);
     const events = await db.query('SELECT COUNT(*)::int AS count FROM events');
     const conversions = await db.query('SELECT COUNT(*)::int AS count FROM conversions');
     
