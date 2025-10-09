@@ -322,15 +322,21 @@ async def main():
     
     try:
         await client.start()
-        print(f'User-bot started successfully as {(await client.get_me()).first_name}')
+        me = await client.get_me()
+        print(f'User-bot started successfully as {me.first_name}')
     except Exception as e:
         print(f'Failed to start user-bot: {e}')
         print('User-bot requires phone login. Please provide USERBOT_SESSION string.')
         return
 
-    conn = db_conn()
-    conn.autocommit = True
-    cur = conn.cursor()
+    try:
+        conn = db_conn()
+        conn.autocommit = True
+        cur = conn.cursor()
+        print('Database connection established')
+    except Exception as e:
+        print(f'Database connection failed: {e}')
+        return
 
     scenario_id = await get_active_scenario(cur)
     if not scenario_id:
